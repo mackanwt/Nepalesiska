@@ -1,11 +1,13 @@
 [
     {
-        "verb_sv": "att gå",
-        "verb_np": "janu (जानू)",
+        "word_sv": "att gå",
+        "transliteration": "janu",
+        "devanagari": "जानु",
         "conjugations": {
-            "Nutid (jag går)": "ma janchu",
-            "Dåtid (jag gick)": "ma gaye",
-            "Framtid (jag ska gå)": "ma jane chu"
+            "Nutid": {
+                "translit": "ma janchu",
+                "devanagari": "म जान्छु"
+            }
         }
     }
 ]
