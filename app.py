@@ -96,7 +96,8 @@ with st.sidebar:
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
-    chars = ["ā", "ī", "ũ", "ĩ", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
+    # Här har 'ũ' bytts ut mot 'ū' (med rakt streck)
+    chars = ["ā", "ī", "ū", "ĩ", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
     
     cols = st.columns(3)
     for idx, char in enumerate(chars):
@@ -271,7 +272,6 @@ with tab2:
         st.divider()
         st.subheader("⚙️ Lägg till / Redigera / Radera Tidsform")
         
-        # Lägg till ny tidsform
         added_tense_input = st.text_input("Skriv ny tidsform att lägga till i rullistan:", key="t2_add_tense_input")
         if st.button("Lägg till tidsform", key="t2_add_tense_btn"):
             if added_tense_input.strip():
@@ -286,7 +286,6 @@ with tab2:
             else:
                 st.error("Skriv in en tidsform.")
 
-        # Hantera/radera befintliga tidsformer
         active_tenses = load_json("tenses.json", DEFAULT_TENSES)
         selected_tense_to_del = st.selectbox("Välj tidsform att radera från rullistan:", active_tenses, key="t2_del_tense_select")
         if st.button("Radera vald tidsform", key="t2_del_tense_btn"):
@@ -446,7 +445,6 @@ with tab7:
     
     col_a, col_b = st.columns(2)
 
-    # 1. Lägg till ord
     with col_a:
         st.subheader("➕ Lägg till nytt ord")
         cat_files = get_category_files()
@@ -470,7 +468,6 @@ with tab7:
             else:
                 st.error("Fyll i svenska samt romaji eller devanagari.")
 
-    # 2. Hantera Kategorier (Skapa / Radera)
     with col_b:
         st.subheader("📁 Hantera Kategorier")
         new_cat_name = st.text_input("Nytt kategorinamn:", key="t7_new_cat")
@@ -502,7 +499,6 @@ with tab7:
 
     st.divider()
 
-    # 3. Hantera ord i specifik kategori (Redigera / Radera ord)
     st.subheader("📋 Redigera eller Radera ord i kategori")
     view_cat = st.selectbox("Välj kategori att hantera:", category_names, key="t7_manage_cat")
     cat_items = load_json(f"{view_cat}.json", [])
