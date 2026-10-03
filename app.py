@@ -199,7 +199,10 @@ with tab2:
         if not verbs_data:
             st.warning("Inga verb inlagda än.")
         else:
-            verb_choices = {f"{v.get('word_sv', '')} - {v.get('transliteration', '')} ({v.get('devanagari', '')})": v for v in verbs_data}
+            verb_choices = {
+                f"{v.get('word_sv', 'Okänd')} - {v.get('transliteration', '')} ({v.get('devanagari', '')})": v 
+                for v in verbs_data
+            }
             selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()), key="t2_verb_select")
             selected_verb = verb_choices[selected_verb_key]
 
@@ -207,11 +210,15 @@ with tab2:
             st.caption(f"Svenska: {selected_verb.get('word_sv', '')}")
 
             st.write("#### Nuvarande böjningar:")
-            for tense, conj_data in selected_verb.get("conjugations", {}).items():
-                if isinstance(conj_data, dict):
-                    st.info(f"**{tense}:** 🔤 {conj_data.get('translit', '')}  |  🇳🇵 {conj_data.get('devanagari', '')}")
-                else:
-                    st.info(f"**{tense}:** {conj_data}")
+            conjugations = selected_verb.get("conjugations", {})
+            if not conjugations:
+                st.info("Inga böjningar tillagda för detta verb ännu.")
+            else:
+                for tense, conj_data in conjugations.items():
+                    if isinstance(conj_data, dict):
+                        st.info(f"**{tense}:** 🔤 {conj_data.get('translit', '')}  |  🇳🇵 {conj_data.get('devanagari', '')}")
+                    else:
+                        st.info(f"**{tense}:** {conj_data}")
 
             st.divider()
             st.subheader("➕ Lägg till ny böjning")
@@ -281,7 +288,11 @@ with tab3:
                 if word_sv and (translit or devanagari):
                     filename = f"{selected_cat}.json"
                     current_data = load_json(filename, [])
-                    current_data.append({"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari})
+                    # Om det är verb-kategorin ser vi till att skicka med en tom conjugations-struktur om den saknas
+                    new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
+                    if selected_cat == "verbs":
+                        new_item["conjugations"] = {}
+                    current_data.append(new_item)
                     save_json(filename, current_data)
                     st.success("Ord sparat!")
                 else:
@@ -311,7 +322,6 @@ with tab3:
         else:
             item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
             
-            # Kolla om kategorin har ändrats för att nollställa valet
             if "t3_last_manage_cat" not in st.session_state or st.session_state.t3_last_manage_cat != view_cat:
                 st.session_state.t3_last_manage_cat = view_cat
                 st.session_state.t3_item_select_idx = 0
@@ -327,11 +337,10 @@ with tab3:
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 if st.button("💾 Spara ändringar i ord", key="t3_save_word"):
-                    cat_items[selected_idx] = {
-                        "word_sv": ed_sv,
-                        "transliteration": ed_trans,
-                        "devanagari": ed_dev
-                    }
+                    current_item["word_sv"] = ed_sv
+                    current_item["transliteration"] = ed_trans
+                    current_item["devanagari"] = ed_dev
+                    cat_items[selected_idx] = current_item
                     save_json(f"{view_cat}.json", cat_items)
                     st.success("Ordet uppdaterades!")
                     st.rerun()
