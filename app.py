@@ -57,8 +57,8 @@ DEFAULT_VERBS = [
         "transliteration": "khanu",
         "devanagari": "खानू",
         "conjugations": {
-            "Nutid": {"translit": "ma khanchu", "devanagari": "म खानछु"},
-            "Dåtid": {"translit": "ma khaaye", "devanagari": "म खाइए"},
+            "Presens": {"translit": "ma khanchu", "devanagari": "म खानछु"},
+            "Preteritum": {"translit": "ma khaaye", "devanagari": "म खाइए"},
         },
     }
 ]
@@ -218,7 +218,11 @@ with tab2:
 
             st.divider()
             st.subheader("➕ Lägg till ny böjning")
-            new_tense_name = st.text_input("Tidsform / Beskrivning:", key="t2_tense")
+            
+            # Ändrat till st.selectbox med de fasta alternativen
+            tense_options = ["Presens", "Preteritum", "Perfekt", "Pluskvamperfekt", "Futurum"]
+            new_tense_name = st.selectbox("Tidsform / Beskrivning:", tense_options, key="t2_tense")
+            
             new_tense_trans = st.text_input("Romaji:", key="t2_trans")
             new_tense_dev = st.text_input("Devanagari:", key="t2_dev")
 
@@ -234,7 +238,7 @@ with tab2:
                     st.success("Böjning sparad!")
                     st.rerun()
                 else:
-                    st.error("Fyll i tidsform och minst en form.")
+                    st.error("Fyll i minst romaji eller devanagari.")
 
             st.divider()
             with st.expander("✏️ Redigera eller Radera detta verb"):
@@ -289,7 +293,6 @@ with tab3:
         if not all_words_list:
             st.info("Inga ord tillagda än.")
         else:
-            # Använd st.dataframe för interaktiv sortering på kolumnrubriker
             st.dataframe(all_words_list, use_container_width=True, hide_index=True)
 
     with right_col:
