@@ -104,7 +104,7 @@ def render_special_chars_sidebar():
 # --- HUVUDLAYOUT ---
 st.title("🇳🇵 Nepalesiska - Träningsapp")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
     [
         "🧩 Bygg Meningar",
         "📖 Verbböjningar",
@@ -112,6 +112,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
         "✍️ Skrivbok & Fru",
         "🎯 Glos-Quiz",
         "💬 Meningsquiz",
+        "⚙️ Redigera ordförråd",
     ]
 )
 
@@ -168,12 +169,6 @@ with tab1:
                 for cat, word_obj in st.session_state.random_challenge.items():
                     st.write(f"**{cat}:** {word_obj.get('word_sv', '')} (*{word_obj.get('transliteration', '')}* / {word_obj.get('devanagari', '')})")
 
-        with st.expander("💡 Visa alla tillgängliga ord som referens"):
-            for cfile in cat_files:
-                st.markdown(f"**{cat_display_names[cfile]}**")
-                for item in load_json(cfile, []):
-                    st.text(f"• 🔤 {item.get('transliteration', '')}  |  🇳🇵 {item.get('devanagari', '')}")
-
         st.divider()
         user_sv_input = st.text_input("1. Svensk översättning:", key="t1_sv")
         user_np_input = st.text_area("2. Nepalesisk mening:", key="t1_np")
@@ -195,8 +190,6 @@ with tab2:
     with main_col:
         st.header("Verbböjningar")
         raw_verbs_data = load_json("verbs.json", DEFAULT_VERBS)
-        
-        # Filtrera bort objekt som saknar svenska ord (för att slippa "Okänd")
         verbs_data = [v for v in raw_verbs_data if v and v.get('word_sv') and v.get('word_sv').strip() != "Okänd"]
 
         if not verbs_data:
@@ -270,88 +263,34 @@ with tab2:
 
     with right_col:
         render_special_chars_sidebar()
-        
-# --- FLIK 3: ORDFÖRRÅD ---
+
+# --- FLIK 3: ORDFÖRRÅD (LISTA & SORTERING) ---
 with tab3:
     main_col, right_col = st.columns([3, 1])
     with main_col:
-        st.header("Ordförråd & Kategorier")
-        col_a, col_b = st.columns(2)
+        st.header("📚 Ordförråd - Alla sparade ord")
+        st.write("Här kan du se en översikt över alla ord i dina kategorier. Klicka på kolumnrubrikerna för att sortera efter önskad ordning.")
 
-        with col_a:
-            st.subheader("➕ Lägg till ord")
-            cat_files = get_category_files()
-            category_names = [f.replace(".json", "") for f in cat_files]
-            selected_cat = st.selectbox("Kategori:", category_names, key="t3_cat")
-            word_sv = st.text_input("Svenska:", key="t3_sv")
-            translit = st.text_input("Romaji:", key="t3_trans")
-            devanagari = st.text_input("Devanagari:", key="t3_dev")
+        cat_files = get_category_files()
+        all_words_list = []
 
-            if st.button("Spara ord", key="t3_save"):
-                if word_sv and (translit or devanagari):
-                    filename = f"{selected_cat}.json"
-                    current_data = load_json(filename, [])
-                    new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
-                    if selected_cat == "verbs":
-                        new_item["conjugations"] = {}
-                    current_data.append(new_item)
-                    save_json(filename, current_data)
-                    st.success("Ord sparat!")
-                else:
-                    st.error("Fyll i svenska samt romaji eller devanagari.")
+        for cfile in cat_files:
+            cat_label = cfile.replace(".json", "").capitalize()
+            cdata = load_json(cfile, [])
+            for item in cdata:
+                if item and item.get("word_sv"):
+                    all_words_list.append({
+                        "Kategori": cat_label,
+                        "Svenska": item.get("word_sv", ""),
+                        "Romaji": item.get("transliteration", ""),
+                        "Devanagari": item.get("devanagari", item.get("word_np", ""))
+                    })
 
-        with col_b:
-            st.subheader("📁 Ny kategori")
-            new_cat_name = st.text_input("Kategorinamn:", key="t3_new_cat")
-            if st.button("Skapa", key="t3_create_cat"):
-                if new_cat_name:
-                    clean_name = new_cat_name.strip().lower().replace(" ", "_")
-                    filename = f"{clean_name}.json"
-                    if not os.path.exists(os.path.join(DATA_DIR, filename)):
-                        save_json(filename, [])
-                        st.success(f"Skapade '{clean_name}'!")
-                        st.rerun()
-                    else:
-                        st.warning("Kategorin finns redan.")
-
-        st.divider()
-        st.subheader("📋 Hantera ord i kategori (Redigera / Radera)")
-        view_cat = st.selectbox("Välj kategori att hantera:", category_names, key="t3_manage_cat")
-        cat_items = load_json(f"{view_cat}.json", [])
-
-        if not cat_items:
-            st.info("Inga ord i denna kategori än.")
+        if not all_words_list:
+            st.info("Inga ord tillagda än.")
         else:
-            item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
-            
-            if "t3_last_manage_cat" not in st.session_state or st.session_state.t3_last_manage_cat != view_cat:
-                st.session_state.t3_last_manage_cat = view_cat
-                st.session_state.t3_item_select_idx = 0
-
-            selected_item_label = st.selectbox("Välj ord att redigera/radera:", list(item_choices.keys()), key="t3_item_select")
-            selected_idx = item_choices[selected_item_label]
-            current_item = cat_items[selected_idx]
-
-            ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t3_ed_sv_{selected_idx}")
-            ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t3_ed_trans_{selected_idx}")
-            ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t3_ed_dev_{selected_idx}")
-
-            col_m1, col_m2 = st.columns(2)
-            with col_m1:
-                if st.button("💾 Spara ändringar i ord", key="t3_save_word"):
-                    current_item["word_sv"] = ed_sv
-                    current_item["transliteration"] = ed_trans
-                    current_item["devanagari"] = ed_dev
-                    cat_items[selected_idx] = current_item
-                    save_json(f"{view_cat}.json", cat_items)
-                    st.success("Ordet uppdaterades!")
-                    st.rerun()
-            with col_m2:
-                if st.button("🗑️ Radera ordet", key="t3_del_word"):
-                    cat_items.pop(selected_idx)
-                    save_json(f"{view_cat}.json", cat_items)
-                    st.success("Ordet raderades!")
-                    st.rerun()
+            # Använd st.dataframe för interaktiv sortering på kolumnrubriker
+            st.dataframe(all_words_list, use_container_width=True, hide_index=True)
 
     with right_col:
         render_special_chars_sidebar()
@@ -482,5 +421,111 @@ with tab6:
             if st.button("➡️ Nästa mening", key="t6_next"):
                 st.session_state.t6_item = random.choice(unique_reviewed)
                 st.rerun()
+    with right_col:
+        render_special_chars_sidebar()
+
+# --- FLIK 7: REDIGERA ORDFÖRRÅD ---
+with tab7:
+    main_col, right_col = st.columns([3, 1])
+    with main_col:
+        st.header("⚙️ Redigera Ordförråd & Kategorier")
+        
+        col_a, col_b = st.columns(2)
+
+        # 1. Lägg till ord
+        with col_a:
+            st.subheader("➕ Lägg till nytt ord")
+            cat_files = get_category_files()
+            category_names = [f.replace(".json", "") for f in cat_files]
+            selected_cat = st.selectbox("Kategori:", category_names, key="t7_cat")
+            word_sv = st.text_input("Svenska:", key="t7_sv")
+            translit = st.text_input("Romaji:", key="t7_trans")
+            devanagari = st.text_input("Devanagari:", key="t7_dev")
+
+            if st.button("Spara ord", key="t7_save"):
+                if word_sv and (translit or devanagari):
+                    filename = f"{selected_cat}.json"
+                    current_data = load_json(filename, [])
+                    new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
+                    if selected_cat == "verbs":
+                        new_item["conjugations"] = {}
+                    current_data.append(new_item)
+                    save_json(filename, current_data)
+                    st.success("Ord sparat!")
+                    st.rerun()
+                else:
+                    st.error("Fyll i svenska samt romaji eller devanagari.")
+
+        # 2. Hantera Kategorier (Skapa / Radera)
+        with col_b:
+            st.subheader("📁 Hantera Kategorier")
+            new_cat_name = st.text_input("Nytt kategorinamn:", key="t7_new_cat")
+            if st.button("Skapa kategori", key="t7_create_cat"):
+                if new_cat_name:
+                    clean_name = new_cat_name.strip().lower().replace(" ", "_")
+                    filename = f"{clean_name}.json"
+                    if not os.path.exists(os.path.join(DATA_DIR, filename)):
+                        save_json(filename, [])
+                        st.success(f"Skapade '{clean_name}'!")
+                        st.rerun()
+                    else:
+                        st.warning("Kategorin finns redan.")
+
+            st.markdown("---")
+            st.subheader("🗑️ Radera kategori")
+            del_cat_options = [f.replace(".json", "") for f in cat_files]
+            selected_del_cat = st.selectbox("Välj kategori att ta bort:", del_cat_options, key="t7_del_cat_select")
+            
+            if st.button("Radera vald kategori", key="t7_del_cat_btn"):
+                if selected_del_cat in ["nouns", "time", "verbs"]:
+                    st.error("Standardkategorier (nouns, time, verbs) kan inte raderas.")
+                else:
+                    target_file = os.path.join(DATA_DIR, f"{selected_del_cat}.json")
+                    if os.path.exists(target_file):
+                        os.remove(target_file)
+                        st.success(f"Kategorin '{selected_del_cat}' har raderats!")
+                        st.rerun()
+
+        st.divider()
+
+        # 3. Hantera ord i specifik kategori (Redigera / Radera ord)
+        st.subheader("📋 Redigera eller Radera ord i kategori")
+        view_cat = st.selectbox("Välj kategori att hantera:", category_names, key="t7_manage_cat")
+        cat_items = load_json(f"{view_cat}.json", [])
+
+        if not cat_items:
+            st.info("Inga ord i denna kategori än.")
+        else:
+            item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
+            
+            if "t7_last_manage_cat" not in st.session_state or st.session_state.t7_last_manage_cat != view_cat:
+                st.session_state.t7_last_manage_cat = view_cat
+                st.session_state.t7_item_select_idx = 0
+
+            selected_item_label = st.selectbox("Välj ord att redigera/radera:", list(item_choices.keys()), key="t7_item_select")
+            selected_idx = item_choices[selected_item_label]
+            current_item = cat_items[selected_idx]
+
+            ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t7_ed_sv_{selected_idx}")
+            ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t7_ed_trans_{selected_idx}")
+            ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t7_ed_dev_{selected_idx}")
+
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                if st.button("💾 Spara ändringar i ord", key="t7_save_word"):
+                    current_item["word_sv"] = ed_sv
+                    current_item["transliteration"] = ed_trans
+                    current_item["devanagari"] = ed_dev
+                    cat_items[selected_idx] = current_item
+                    save_json(f"{view_cat}.json", cat_items)
+                    st.success("Ordet uppdaterades!")
+                    st.rerun()
+            with col_m2:
+                if st.button("🗑️ Radera ordet", key="t7_del_word"):
+                    cat_items.pop(selected_idx)
+                    save_json(f"{view_cat}.json", cat_items)
+                    st.success("Ordet raderades!")
+                    st.rerun()
+
     with right_col:
         render_special_chars_sidebar()
