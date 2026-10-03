@@ -194,13 +194,16 @@ with tab2:
     main_col, right_col = st.columns([3, 1])
     with main_col:
         st.header("Verbböjningar")
-        verbs_data = load_json("verbs.json", DEFAULT_VERBS)
+        raw_verbs_data = load_json("verbs.json", DEFAULT_VERBS)
+        
+        # Filtrera bort objekt som saknar svenska ord (för att slippa "Okänd")
+        verbs_data = [v for v in raw_verbs_data if v and v.get('word_sv') and v.get('word_sv').strip() != "Okänd"]
 
         if not verbs_data:
-            st.warning("Inga verb inlagda än.")
+            st.warning("Inga giltiga verb inlagda än.")
         else:
             verb_choices = {
-                f"{v.get('word_sv', 'Okänd')} - {v.get('transliteration', '')} ({v.get('devanagari', '')})": v 
+                f"{v.get('word_sv')} - {v.get('transliteration', '')} ({v.get('devanagari', '')})": v 
                 for v in verbs_data
             }
             selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()), key="t2_verb_select")
@@ -228,13 +231,13 @@ with tab2:
 
             if st.button("Spara böjning", key="t2_save"):
                 if new_tense_name and (new_tense_trans or new_tense_dev):
-                    for v in verbs_data:
+                    for v in raw_verbs_data:
                         if v.get("word_sv") == selected_verb.get("word_sv"):
                             if "conjugations" not in v:
                                 v["conjugations"] = {}
                             v["conjugations"][new_tense_name] = {"translit": new_tense_trans, "devanagari": new_tense_dev}
                             break
-                    save_json("verbs.json", verbs_data)
+                    save_json("verbs.json", raw_verbs_data)
                     st.success("Böjning sparad!")
                     st.rerun()
                 else:
@@ -249,25 +252,25 @@ with tab2:
                 col_e1, col_e2 = st.columns(2)
                 with col_e1:
                     if st.button("💾 Spara ändringar i verb", key="t2_save_edit"):
-                        for v in verbs_data:
+                        for v in raw_verbs_data:
                             if v.get("word_sv") == selected_verb.get("word_sv"):
                                 v["word_sv"] = edit_sv
                                 v["transliteration"] = edit_trans
                                 v["devanagari"] = edit_dev
                                 break
-                        save_json("verbs.json", verbs_data)
+                        save_json("verbs.json", raw_verbs_data)
                         st.success("Verbet uppdaterat!")
                         st.rerun()
                 with col_e2:
                     if st.button("🗑️ Radera hela verbet", key="t2_delete_verb"):
-                        verbs_data = [v for v in verbs_data if v.get("word_sv") != selected_verb.get("word_sv")]
-                        save_json("verbs.json", verbs_data)
+                        raw_verbs_data = [v for v in raw_verbs_data if v.get("word_sv") != selected_verb.get("word_sv")]
+                        save_json("verbs.json", raw_verbs_data)
                         st.success("Verbet raderades!")
                         st.rerun()
 
     with right_col:
         render_special_chars_sidebar()
-
+        
 # --- FLIK 3: ORDFÖRRÅD ---
 with tab3:
     main_col, right_col = st.columns([3, 1])
