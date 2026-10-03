@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import streamlit as st
 
 # --- SIDKONFIGURATION ---
@@ -32,49 +33,46 @@ def save_json(filename, data):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-# Standarddata om filer saknas
-DEFAULT_SENTENCES = [
-    {
-        "id": 1,
-        "name": "Mat och Tid",
-        "template_sv": "[Time] åt jag [Food].",
-        "template_np": "[Time_np] ma [Food_np] khaaye.",
-        "slots": {"Time": "time.json", "Food": "nouns.json"},
-    }
-]
+# Hämta alla kategori-filer dynamiskt från data-mappen
+def get_category_files():
+    # Standardfiler som alltid ska finnas
+    files = ["nouns.json", "time.json"]
+    if os.path.exists(DATA_DIR):
+        for f in os.listdir(DATA_DIR):
+            if f.endswith(".json") and f not in [
+                "sentences.json",
+                "verbs.json",
+                "user_sentences.json",
+            ]:
+                if f not in files:
+                    files.append(f)
+    return files
 
+
+# Standarddata om filer saknas
 DEFAULT_VERBS = [
     {
         "verb_sv": "att äta",
-        "verb_np": "khanu (खानू)",
+        "verb_np": "khanu",
+        "transliteration": "khanu",
         "conjugations": {
             "Nutid (jag äter)": "ma khanchu",
             "Dåtid (jag åt)": "ma khaaye",
-            "Framtid (jag ska äta)": "ma khane chu",
         },
-    },
-    {
-        "verb_sv": "att gå",
-        "verb_np": "janu (जानू)",
-        "conjugations": {
-            "Nutid (jag går)": "ma janchu",
-            "Dåtid (jag gick)": "ma gaye",
-            "Framtid (jag ska gå)": "ma jane chu",
-        },
-    },
+    }
 ]
-
 DEFAULT_NOUNS = [
-    {"word_sv": "frukost", "word_np": "bihanko khaja", "transliteration": "khaja"},
-    {"word_sv": "mat", "word_np": "khana", "transliteration": "khana"},
+    {
+        "word_sv": "frukost",
+        "word_np": "बिहानको खाजा",
+        "transliteration": "bihanko khaja",
+    },
+    {"word_sv": "mat", "word_np": "खाना", "transliteration": "khana"},
 ]
-
 DEFAULT_TIME = [
-    {"word_sv": "idag", "word_np": "aja", "transliteration": "aja"},
-    {"word_sv": "igår", "word_np": "hijo", "transliteration": "hijo"},
-    {"word_sv": "imorgon", "word_np": "bholi", "transliteration": "bholi"},
+    {"word_sv": "idag", "word_np": "आज", "transliteration": "aja"},
+    {"word_sv": "igår", "word_np": "हिजो", "transliteration": "hijo"},
 ]
-
 DEFAULT_USER_SENTENCES = [
     {
         "sv": "Idag åt jag frukost.",
@@ -83,95 +81,103 @@ DEFAULT_USER_SENTENCES = [
     }
 ]
 
-# Ladda in data
-sentences_data = load_json("sentences.json", DEFAULT_SENTENCES)
+# Ladda data
 verbs_data = load_json("verbs.json", DEFAULT_VERBS)
-nouns_data = load_json("nouns.json", DEFAULT_NOUNS)
-time_data = load_json("time.json", DEFAULT_TIME)
 user_sentences_data = load_json("user_sentences.json", DEFAULT_USER_SENTENCES)
 
 # --- APP-STRUKTUR (FLIKAR) ---
-st.title("🇳🇵 Nepalesiska - Substitutionsapp")
+st.title("🇳🇵 Nepalesiska - Träningsapp")
 st.write(
-    "Lär dig nepalesiska genom att bygga meningar, träna verb och spara för feedback!"
+    "Bygg meningar fritt, hantera ditt ordförråd och träna glosor utan facit i förväg!"
 )
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["🧩 Bygg Meningar", "📖 Verbböjningar", "✍️ Skrivbok & Fru", "🎯 Glos-Quiz"]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    [
+        "🧩 Bygg Meningar",
+        "📖 Verbböjningar",
+        "📚 Ordförråd & Kategorier",
+        "✍️ Skrivbok & Fru",
+        "🎯 Glos-Quiz",
+    ]
 )
 
-# --- FLIK 1: BYGG MENINGAR (SUBSTITUTION) ---
+# --- FLIK 1: BYGG MENINGAR (SLUMP & FRITT SKAPANDE) ---
 with tab1:
-    st.header("Substitutionsövning")
-    st.write("Välj en mall och byt ut delar för att skapa meningar.")
+    st.header("Aktiv Meningsbyggnad")
+    st.write(
+        "Slumpa fram ord från olika kategorier och sätt ihop en egen mening!"
+    )
 
-    if not sentences_data:
-        st.warning("Inga meningsmallar hittades.")
-    else:
-        # Välj mall
-        sentence_options = {s["name"]: s for s in sentences_data}
-        selected_name = st.selectbox(
-            "Välj meningsmall:", list(sentence_options.keys())
-        )
-        current_sentence = sentence_options[selected_name]
+    cat_files = get_category_files()
 
-        st.markdown(
-            f"**Svensk mall:** `{current_sentence['template_sv']}`"
-        )
+    if st.button("🎲 Slumpa fram nya ord att bygga med"):
+        selected_words = {}
+        for cfile in cat_files:
+            cdata = load_json(cfile, [])
+            if cdata:
+                chosen = random.choice(cdata)
+                cat_name = cfile.replace(".json", "").capitalize()
+                selected_words[cat_name] = chosen
+        st.session_state.random_challenge = selected_words
 
-        # Dynamiska val för platshållare
-        slot_values = {}
-        for slot_key in current_sentence["slots"]:
-            filename = current_sentence["slots"][slot_key]
+    # Hämta eller generera första gången
+    if "random_challenge" not in st.session_state:
+        selected_words = {}
+        for cfile in cat_files:
+            cdata = load_json(cfile, [])
+            if cdata:
+                chosen = random.choice(cdata)
+                cat_name = cfile.replace(".json", "").capitalize()
+                selected_words[cat_name] = chosen
+        st.session_state.random_challenge = selected_words
 
-            # Välj rätt datakälla beroende på filnamn
-            if filename == "time.json":
-                options_list = time_data
-            elif filename == "nouns.json":
-                options_list = nouns_data
-            else:
-                options_list = nouns_data
-
-            choices = {
-                f"{item['word_sv']} ({item['word_np']})": item
-                for item in options_list
-            }
-
-            selected_choice = st.selectbox(
-                f"Välj {slot_key}:", list(choices.keys()), key=f"slot_{slot_key}"
+    st.markdown("### Dagens slumpade ord (Byggstenar):")
+    cols = st.columns(len(st.session_state.random_challenge))
+    for idx, (cat, word_obj) in enumerate(
+        st.session_state.random_challenge.items()
+    ):
+        with cols[idx]:
+            st.info(
+                f"**{cat}**\n\n🇳🇵 {word_obj.get('word_np', '')}\n\n🔤 *{word_obj.get('transliteration', '')}*"
             )
-            slot_values[slot_key] = choices[selected_choice]
 
-        # Bygg ihop meningen
-        final_sv = current_sentence["template_sv"]
-        final_np = current_sentence["template_np"]
+    with st.expander(
+        "💡 Visa alla tillgängliga ord i kategorierna som referens"
+    ):
+        for cfile in cat_files:
+            cdata = load_json(cfile, [])
+            cat_name = cfile.replace(".json", "").capitalize()
+            st.markdown(f"**Kategori: {cat_name}**")
+            for item in cdata:
+                st.text(
+                    f"• {item.get('word_np')} ({item.get('transliteration')}) - [Svenska döljs här]"
+                )
 
-        for slot_key, item in slot_values.items():
-            final_sv = final_sv.replace(f"[{slot_key}]", item["word_sv"])
-            final_np = final_np.replace(
-                f"[{slot_key}_np]", item["word_np"]
-            )  # Byt ut mot nepalesiska
+    st.divider()
+    st.markdown("### Skriv din mening:")
+    user_sv_input = st.text_input(
+        "1. Skriv din svenska översättning av meningen:"
+    )
+    user_np_input = st.text_area(
+        "2. Skriv meningen på nepalesiska (med ditt tangentbord):"
+    )
 
-        st.success("### Genererad Mening:")
-        st.markdown(f"**Svenska:** {final_sv}")
-        st.markdown(f"**Nepalesiska:** {final_np}")
-
-        if st.button("💾 Spara meningen till min skrivbok"):
+    if st.button("💾 Spara meningen till skrivboken"):
+        if user_sv_input and user_np_input:
             new_entry = {
-                "sv": final_sv,
-                "np": final_np,
+                "sv": user_sv_input,
+                "np": user_np_input,
                 "status": "Väntar på granskning",
             }
             user_sentences_data.append(new_entry)
             save_json("user_sentences.json", user_sentences_data)
-            st.toast("Meningen sparades i skrivboken!", icon="✅")
+            st.success("Meningen sparad till skrivboken för fru-rättning! 🎉")
+        else:
+            st.error("Fyll i både den svenska och nepalesiska meningen.")
 
 # --- FLIK 2: VERBBÖJNINGAR ---
 with tab2:
     st.header("Verbböjningar & Lexikon")
-    st.write(
-        "Klicka på ett verb för att se dess böjningar i olika tidsformer."
-    )
 
     if not verbs_data:
         st.warning("Inga verb inlagda än.")
@@ -182,120 +188,155 @@ with tab2:
         selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()))
         selected_verb = verb_choices[selected_verb_key]
 
-        st.markdown(f"### Grundform: **{selected_verb['verb_np']}**")
+        st.markdown(
+            f"### Grundform: **{selected_verb['verb_np']}** (*{selected_verb.get('transliteration', '')}*)"
+        )
         st.caption(f"Svenska: {selected_verb['verb_sv']}")
 
         st.write("#### Böjningar:")
         for tense, conjugation in selected_verb["conjugations"].items():
             st.info(f"**{tense}:** {conjugation}")
 
-        with st.expander("➕ Lägg till nytt verb (eller redigera i JSON)"):
-            new_sv = st.text_input("Svensk betydelse (t.ex. att sova):")
-            new_np = st.text_input("Nepalesisk grundform (t.ex. sutnu):")
-            if st.button("Spara nytt verb"):
-                if new_sv and new_np:
-                    verbs_data.append(
-                        {
-                            "verb_sv": new_sv,
-                            "verb_np": new_np,
-                            "conjugations": {
-                                "Nutid": f"ma {new_np[:-2]}nchu",
-                                "Dåtid": f"ma {new_np[:-2]}e",
-                            },
-                        }
-                    )
-                    save_json("verbs.json", verbs_data)
-                    st.success("Verbet tillagt! Ladda om sidan.")
-                else:
-                    st.error("Fyll i båda fälten.")
-
-# --- FLIK 3: SKRIVBOK & FRU-RÄTTNING ---
+# --- FLIK 3: ORDFÖRRÅD & KATEGORIER ---
 with tab3:
-    st.header("Skrivbok & Fru-rättning")
-    st.write(
-        "Här kan du skriva egna meningar fritt och se sparade meningar från dina övningar."
-    )
+    st.header("Ordförråd & Kategorihantering")
 
-    # Lägg till helt egen mening
-    with st.form("custom_sentence_form"):
-        st.subheader("Skriv en egen mening")
-        custom_sv = st.text_input("Svenska:")
-        custom_np = st.text_input("Nepalesiska (använd ditt tangentbord):")
-        submitted = st.form_submit_button("Spara mening")
-        if submitted and custom_sv and custom_np:
-            user_sentences_data.append(
-                {
-                    "sv": custom_sv,
-                    "np": custom_np,
-                    "status": "Väntar på granskning",
-                }
-            )
-            save_json("user_sentences.json", user_sentences_data)
-            st.success("Meningen har sparats!")
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.subheader("➕ Lägg till nytt ord")
+        cat_files = get_category_files()
+        category_names = [f.replace(".json", "") for f in cat_files]
+
+        selected_cat = st.selectbox("Välj kategori:", category_names)
+        word_sv = st.text_input("Svenska:")
+        word_np = st.text_input("Nepalesiska tecken (Devanagari):")
+        translit = st.text_input("Romaji / Transliteration (t.ex. 'khaja'):")
+
+        if st.button("Spara ord"):
+            if word_sv and word_np:
+                filename = f"{selected_cat}.json"
+                current_data = load_json(filename, [])
+                current_data.append(
+                    {
+                        "word_sv": word_sv,
+                        "word_np": word_np,
+                        "transliteration": translit,
+                    }
+                )
+                save_json(filename, current_data)
+                st.success(
+                    f"Sparade '{word_sv}' i kategorin '{selected_cat}'!"
+                )
+            else:
+                st.error("Fyll i åtminstone svenska och nepalesiska tecken.")
+
+    with col_b:
+        st.subheader("📁 Skapa ny kategori")
+        new_cat_name = st.text_input(
+            "Namn på ny kategori (t.ex. 'platser', 'kläder'):"
+        )
+        if st.button("Skapa kategori"):
+            if new_cat_name:
+                clean_name = new_cat_name.strip().lower().replace(" ", "_")
+                filename = f"{clean_name}.json"
+                if not os.path.exists(os.path.join(DATA_DIR, filename)):
+                    save_json(filename, [])
+                    st.success(
+                        f"Kategorin '{clean_name}' skapades! Du kan nu lägga till ord i den."
+                    )
+                    st.rerun()
+                else:
+                    st.warning("Kategorin finns redan.")
+            else:
+                st.error("Skriv ett namn på kategorin.")
 
     st.divider()
-    st.subheader("Sparade meningar:")
+    st.subheader("Befintliga ord i vald kategori:")
+    view_cat = st.selectbox("Visa ord i kategori:", category_names, key="view_cat")
+    cat_items = load_json(f"{view_cat}.json", [])
+    if cat_items:
+        for item in cat_items:
+            st.text(
+                f"🇸🇪 {item.get('word_sv')}  |  🇳🇵 {item.get('word_np')}  |  🔤 {item.get('transliteration')}"
+            )
+    else:
+        st.info("Inga ord i denna kategori än.")
+
+# --- FLIK 4: SKRIVBOK & FRU-RÄTTNING ---
+with tab4:
+    st.header("Skrivbok & Fru-rättning")
+    st.write(
+        "Här samlas dina sparade meningar. Din fru kan läsa och rätta dem!"
+    )
 
     if not user_sentences_data:
-        st.info("Inga sparade meningar ännu.")
+        st.info("Inga sparade meningar ännu. Bygg några i första fliken!")
     else:
         for idx, item in enumerate(user_sentences_data):
             with st.container():
-                st.markdown(f"**{idx+1}. Svenska:** {item['sv']}")
-                st.markdown(f"**   Nepalesiska:** {item['np']}")
-                st.caption(f"Status: {item['status']}")
-                if st.button(
-                    f"Radera mening {idx+1}", key=f"del_sent_{idx}"
-                ):
+                st.markdown(f"**Mening {idx+1}:**")
+                st.markdown(f"**Svenska:** {item['sv']}")
+                st.markdown(f"**Nepalesiska:** {item['np']}")
+                st.caption(f"Status: {item.get('status', 'Ej granskad')}")
+
+                if st.button(f"Radera mening {idx+1}", key=f"del_sent_{idx}"):
                     user_sentences_data.pop(idx)
                     save_json("user_sentences.json", user_sentences_data)
                     st.rerun()
                 st.write("---")
 
-# --- FLIK 4: GLOS-QUIZ ---
-with tab4:
+# --- FLIK 5: GLOS-QUIZ ---
+with tab5:
     st.header("Glos-Quiz")
-    st.write("Testa ditt ordförråd från dina kategorier!")
 
-    category_choice = st.selectbox(
-        "Välj kategori att träna på:", ["Substantiv", "Tid"]
-    )
+    cat_files = get_category_files()
+    cat_names = [f.replace(".json", "") for f in cat_files]
+    quiz_cat = st.selectbox("Välj kategori att träna på:", cat_names, key="quiz_cat_select")
 
-    if category_choice == "Substantiv":
-        active_vocab = nouns_data
-    else:
-        active_vocab = time_data
+    active_vocab = load_json(f"{quiz_cat}.json", [])
+
+    # Nollställ quiz-item om kategorin ändras
+    if (
+        "last_quiz_cat" not in st.session_state
+        or st.session_state.last_quiz_cat != quiz_cat
+    ):
+        st.session_state.last_quiz_cat = quiz_cat
+        if active_vocab:
+            st.session_state.quiz_item = random.choice(active_vocab)
+        else:
+            st.session_state.quiz_item = None
 
     if not active_vocab:
-        st.warning("Tom kategori.")
+        st.warning("Tom kategori. Lägg till ord i ordförråds-fliken först!")
     else:
-        import random
-
-        if "quiz_item" not in st.session_state:
+        if "quiz_item" not in st.session_state or not st.session_state.quiz_item:
             st.session_state.quiz_item = random.choice(active_vocab)
 
         current_q = st.session_state.quiz_item
 
         st.markdown(
-            f"### Vad betyder det svenska ordet **'{current_q['word_sv']}'** på nepalesiska?"
+            f"### Vad betyder det svenska ordet **'{current_q.get('word_sv')}'** på nepalesiska?"
         )
         user_guess = st.text_input(
-            "Skriv ditt svar här (eller transkribering):", key="quiz_input"
+            "Skriv ditt svar (nepalesiska tecken eller translitterering):",
+            key="quiz_input",
         )
 
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Kontrollera svar"):
-                if (
-                    user_guess.strip().lower()
-                    == current_q["word_np"].strip().lower()
-                    or user_guess.strip().lower()
-                    == current_q.get("transliteration", "").strip().lower()
-                ):
+                correct_np = current_q.get("word_np", "").strip().lower()
+                correct_trans = (
+                    current_q.get("transliteration", "").strip().lower()
+                )
+                guess = user_guess.strip().lower()
+
+                if guess == correct_np or guess == correct_trans:
                     st.success("🎉 Rätt svar!")
                 else:
                     st.error(
-                        f"❌ Fel. Rätt svar är: **{current_q['word_np']}** ({current_q.get('transliteration', '')})"
+                        f"❌ Fel. Rätt svar är: **{current_q.get('word_np')}** (*{current_q.get('transliteration')}*)"
                     )
         with col2:
             if st.button("Nästa ord"):
