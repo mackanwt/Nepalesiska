@@ -91,23 +91,8 @@ load_json("nouns.json", DEFAULT_NOUNS)
 load_json("time.json", DEFAULT_TIME)
 tenses_data = load_json("tenses.json", DEFAULT_TENSES)
 
-# --- CSS FÖR STICKY HÖGERSIDA ---
-st.markdown(
-    """
-    <style>
-    /* Gör att högerkolumnen (index 1 i 3/1-layouten) sitter fast vid scrollning */
-    div[data-testid="column"]:nth-of-type(2) {
-        position: sticky;
-        top: 4rem;
-        height: fit-content;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# --- HJÄLPFUNKTION FÖR SPECIALTECKEN PÅ HÖGERSIDAN ---
-def render_special_chars_sidebar():
+# --- SPECIALTECKEN I SIDOMENYN (ALLTID SYNLIGA) ---
+with st.sidebar:
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
@@ -117,7 +102,6 @@ def render_special_chars_sidebar():
     for idx, char in enumerate(chars):
         with cols[idx % 3]:
             st.code(char, language=None)
-
 
 # --- HUVUDLAYOUT ---
 st.title("🇳🇵 Nepalesiska - Träningsapp")
@@ -136,455 +120,423 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
 
 # --- FLIK 1: BYGG MENINGAR ---
 with tab1:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("Aktiv Meningsbyggnad")
-        st.write("Välj kategorier och slumpa fram ord att bygga med!")
+    st.header("Aktiv Meningsbyggnad")
+    st.write("Välj kategorier och slumpa fram ord att bygga med!")
 
-        cat_files = get_category_files()
-        cat_display_names = {f: f.replace(".json", "").capitalize() for f in cat_files}
+    cat_files = get_category_files()
+    cat_display_names = {f: f.replace(".json", "").capitalize() for f in cat_files}
 
-        selected_cats = st.multiselect(
-            "Välj kategorier:",
-            options=cat_files,
-            format_func=lambda x: cat_display_names[x],
-            default=[c for c in cat_files if c in ["nouns.json", "time.json"]],
-            key="t1_multiselect"
-        )
+    selected_cats = st.multiselect(
+        "Välj kategorier:",
+        options=cat_files,
+        format_func=lambda x: cat_display_names[x],
+        default=[c for c in cat_files if c in ["nouns.json", "time.json"]],
+        key="t1_multiselect"
+    )
 
-        if st.button("🎲 Slumpa fram nya ord", key="t1_btn"):
-            if not selected_cats:
-                st.warning("Välj minst en kategori!")
-            else:
-                selected_words = {}
-                for cfile in selected_cats:
-                    cdata = load_json(cfile, [])
-                    if cdata:
-                        chosen = random.choice(cdata)
-                        selected_words[cat_display_names[cfile]] = chosen
-                st.session_state.random_challenge = selected_words
+    if st.button("🎲 Slumpa fram nya ord", key="t1_btn"):
+        if not selected_cats:
+            st.warning("Välj minst en kategori!")
+        else:
+            selected_words = {}
+            for cfile in selected_cats:
+                cdata = load_json(cfile, [])
+                if cdata:
+                    chosen = random.choice(cdata)
+                    selected_words[cat_display_names[cfile]] = chosen
+            st.session_state.random_challenge = selected_words
 
-        if "random_challenge" not in st.session_state or not st.session_state.random_challenge:
-            if selected_cats:
-                selected_words = {}
-                for cfile in selected_cats:
-                    cdata = load_json(cfile, [])
-                    if cdata:
-                        chosen = random.choice(cdata)
-                        selected_words[cat_display_names[cfile]] = chosen
-                st.session_state.random_challenge = selected_words
+    if "random_challenge" not in st.session_state or not st.session_state.random_challenge:
+        if selected_cats:
+            selected_words = {}
+            for cfile in selected_cats:
+                cdata = load_json(cfile, [])
+                if cdata:
+                    chosen = random.choice(cdata)
+                    selected_words[cat_display_names[cfile]] = chosen
+            st.session_state.random_challenge = selected_words
 
-        if "random_challenge" in st.session_state and st.session_state.random_challenge:
-            st.markdown("### Dagens byggstenar:")
-            cols = st.columns(len(st.session_state.random_challenge))
-            for idx, (cat, word_obj) in enumerate(st.session_state.random_challenge.items()):
-                with cols[idx]:
-                    trans = word_obj.get("transliteration", "")
-                    dev = word_obj.get("devanagari", word_obj.get("word_np", ""))
-                    st.info(f"**{cat}**\n\n🔤 {trans}\n\n🇳🇵 {dev}")
+    if "random_challenge" in st.session_state and st.session_state.random_challenge:
+        st.markdown("### Dagens byggstenar:")
+        cols = st.columns(len(st.session_state.random_challenge))
+        for idx, (cat, word_obj) in enumerate(st.session_state.random_challenge.items()):
+            with cols[idx]:
+                trans = word_obj.get("transliteration", "")
+                dev = word_obj.get("devanagari", word_obj.get("word_np", ""))
+                st.info(f"**{cat}**\n\n🔤 {trans}\n\n🇳🇵 {dev}")
 
-            with st.expander("🔍 Hint: Visa svensk betydelse"):
-                for cat, word_obj in st.session_state.random_challenge.items():
-                    st.write(f"**{cat}:** {word_obj.get('word_sv', '')} (*{word_obj.get('transliteration', '')}* / {word_obj.get('devanagari', '')})")
+        with st.expander("🔍 Hint: Visa svensk betydelse"):
+            for cat, word_obj in st.session_state.random_challenge.items():
+                st.write(f"**{cat}:** {word_obj.get('word_sv', '')} (*{word_obj.get('transliteration', '')}* / {word_obj.get('devanagari', '')})")
 
-        st.divider()
-        user_sv_input = st.text_input("1. Svensk översättning:", key="t1_sv")
-        user_np_input = st.text_area("2. Nepalesisk mening:", key="t1_np")
+    st.divider()
+    user_sv_input = st.text_input("1. Svensk översättning:", key="t1_sv")
+    user_np_input = st.text_area("2. Nepalesisk mening:", key="t1_np")
 
-        if st.button("💾 Spara till skrivboken", key="t1_save"):
-            if user_sv_input and user_np_input:
-                user_sentences_data.append({"sv": user_sv_input, "np": user_np_input, "status": "Ej granskad"})
-                save_json("user_sentences.json", user_sentences_data)
-                st.success("Sparat till skrivboken!")
-            else:
-                st.error("Fyll i båda fälten.")
-
-    with right_col:
-        render_special_chars_sidebar()
+    if st.button("💾 Spara till skrivboken", key="t1_save"):
+        if user_sv_input and user_np_input:
+            user_sentences_data.append({"sv": user_sv_input, "np": user_np_input, "status": "Ej granskad"})
+            save_json("user_sentences.json", user_sentences_data)
+            st.success("Sparat till skrivboken!")
+        else:
+            st.error("Fyll i båda fälten.")
 
 # --- FLIK 2: VERBBÖJNINGAR ---
 with tab2:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("Verbböjningar")
-        raw_verbs_data = load_json("verbs.json", DEFAULT_VERBS)
-        verbs_data = [v for v in raw_verbs_data if v and v.get('word_sv') and v.get('word_sv').strip() != "Okänd"]
+    st.header("Verbböjningar")
+    raw_verbs_data = load_json("verbs.json", DEFAULT_VERBS)
+    verbs_data = [v for v in raw_verbs_data if v and v.get('word_sv') and v.get('word_sv').strip() != "Okänd"]
 
-        if not verbs_data:
-            st.warning("Inga giltiga verb inlagda än.")
+    if not verbs_data:
+        st.warning("Inga giltiga verb inlagda än.")
+    else:
+        verb_choices = {
+            f"{v.get('word_sv')} - {v.get('transliteration', '')} ({v.get('devanagari', '')})": v 
+            for v in verbs_data
+        }
+        selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()), key="t2_verb_select")
+        selected_verb = verb_choices[selected_verb_key]
+
+        st.markdown(f"### Grundform: 🔤 {selected_verb.get('transliteration', '')}  |  🇳🇵 {selected_verb.get('devanagari', '')}")
+        st.caption(f"Svenska: {selected_verb.get('word_sv', '')}")
+
+        st.write("#### Nuvarande böjningar:")
+        conjugations = selected_verb.get("conjugations", {})
+        if not conjugations:
+            st.info("Inga böjningar tillagda för detta verb ännu.")
         else:
-            verb_choices = {
-                f"{v.get('word_sv')} - {v.get('transliteration', '')} ({v.get('devanagari', '')})": v 
-                for v in verbs_data
-            }
-            selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()), key="t2_verb_select")
-            selected_verb = verb_choices[selected_verb_key]
+            for tense, conj_data in conjugations.items():
+                if isinstance(conj_data, dict):
+                    st.info(f"**{tense}:** 🔤 {conj_data.get('translit', '')}  |  🇳🇵 {conj_data.get('devanagari', '')}")
+                else:
+                    st.info(f"**{tense}:** {conj_data}")
 
-            st.markdown(f"### Grundform: 🔤 {selected_verb.get('transliteration', '')}  |  🇳🇵 {selected_verb.get('devanagari', '')}")
-            st.caption(f"Svenska: {selected_verb.get('word_sv', '')}")
+        st.divider()
+        st.subheader("➕ Lägg till ny böjning")
+        
+        current_tenses = load_json("tenses.json", DEFAULT_TENSES)
+        new_tense_name = st.selectbox("Tidsform / Beskrivning:", current_tenses, key="t2_tense")
+        new_tense_trans = st.text_input("Romaji:", key="t2_trans")
+        new_tense_dev = st.text_input("Devanagari:", key="t2_dev")
 
-            st.write("#### Nuvarande böjningar:")
-            conjugations = selected_verb.get("conjugations", {})
-            if not conjugations:
-                st.info("Inga böjningar tillagda för detta verb ännu.")
+        if st.button("Spara böjning", key="t2_save"):
+            if new_tense_name and (new_tense_trans or new_tense_dev):
+                for v in raw_verbs_data:
+                    if v.get("word_sv") == selected_verb.get("word_sv"):
+                        if "conjugations" not in v:
+                            v["conjugations"] = {}
+                        v["conjugations"][new_tense_name] = {"translit": new_tense_trans, "devanagari": new_tense_dev}
+                        break
+                save_json("verbs.json", raw_verbs_data)
+                st.success("Böjning sparad!")
+                st.rerun()
             else:
-                for tense, conj_data in conjugations.items():
-                    if isinstance(conj_data, dict):
-                        st.info(f"**{tense}:** 🔤 {conj_data.get('translit', '')}  |  🇳🇵 {conj_data.get('devanagari', '')}")
-                    else:
-                        st.info(f"**{tense}:** {conj_data}")
+                st.error("Fyll i minst romaji eller devanagari.")
 
-            st.divider()
-            st.subheader("➕ Lägg till ny böjning")
-            
-            current_tenses = load_json("tenses.json", DEFAULT_TENSES)
-            new_tense_name = st.selectbox("Tidsform / Beskrivning:", current_tenses, key="t2_tense")
-            new_tense_trans = st.text_input("Romaji:", key="t2_trans")
-            new_tense_dev = st.text_input("Devanagari:", key="t2_dev")
+        st.divider()
+        with st.expander("✏️ Redigera eller Radera böjningar för detta verb"):
+            if not conjugations:
+                st.info("Finns inga böjningar att redigera.")
+            else:
+                for tense, conj_data in list(conjugations.items()):
+                    st.markdown(f"**Böjning: {tense}**")
+                    curr_t = conj_data.get("translit", "") if isinstance(conj_data, dict) else ""
+                    curr_d = conj_data.get("devanagari", "") if isinstance(conj_data, dict) else str(conj_data)
 
-            if st.button("Spara böjning", key="t2_save"):
-                if new_tense_name and (new_tense_trans or new_tense_dev):
-                    for v in raw_verbs_data:
-                        if v.get("word_sv") == selected_verb.get("word_sv"):
-                            if "conjugations" not in v:
-                                v["conjugations"] = {}
-                            v["conjugations"][new_tense_name] = {"translit": new_tense_trans, "devanagari": new_tense_dev}
-                            break
-                    save_json("verbs.json", raw_verbs_data)
-                    st.success("Böjning sparad!")
+                    ed_t = st.text_input(f"Romaji ({tense}):", value=curr_t, key=f"t2_ed_t_{selected_verb.get('word_sv')}_{tense}")
+                    ed_d = st.text_input(f"Devanagari ({tense}):", value=curr_d, key=f"t2_ed_d_{selected_verb.get('word_sv')}_{tense}")
+
+                    col_bx1, col_bx2 = st.columns(2)
+                    with col_bx1:
+                        if st.button("💾 Spara ändring", key=f"t2_save_c_{selected_verb.get('word_sv')}_{tense}"):
+                            for v in raw_verbs_data:
+                                if v.get("word_sv") == selected_verb.get("word_sv"):
+                                    v["conjugations"][tense] = {"translit": ed_t, "devanagari": ed_d}
+                                    break
+                            save_json("verbs.json", raw_verbs_data)
+                            st.success(f"Uppdaterade {tense}!")
+                            st.rerun()
+                    with col_bx2:
+                        if st.button("🗑️ Radera böjning", key=f"t2_del_c_{selected_verb.get('word_sv')}_{tense}"):
+                            for v in raw_verbs_data:
+                                if v.get("word_sv") == selected_verb.get("word_sv"):
+                                    if tense in v["conjugations"]:
+                                        del v["conjugations"][tense]
+                                    break
+                            save_json("verbs.json", raw_verbs_data)
+                            st.success(f"Raderade {tense}!")
+                            st.rerun()
+                    st.write("---")
+
+        st.divider()
+        st.subheader("⚙️ Lägg till / Redigera / Radera Tidsform")
+        
+        # Lägg till ny tidsform
+        added_tense_input = st.text_input("Skriv ny tidsform att lägga till i rullistan:", key="t2_add_tense_input")
+        if st.button("Lägg till tidsform", key="t2_add_tense_btn"):
+            if added_tense_input.strip():
+                t_list = load_json("tenses.json", DEFAULT_TENSES)
+                if added_tense_input.strip() not in t_list:
+                    t_list.append(added_tense_input.strip())
+                    save_json("tenses.json", t_list)
+                    st.success(f"Tidsformen '{added_tense_input.strip()}' lades till!")
                     st.rerun()
                 else:
-                    st.error("Fyll i minst romaji eller devanagari.")
+                    st.warning("Tidsformen finns redan.")
+            else:
+                st.error("Skriv in en tidsform.")
 
-            st.divider()
-            with st.expander("✏️ Redigera eller Radera böjningar för detta verb"):
-                if not conjugations:
-                    st.info("Finns inga böjningar att redigera.")
-                else:
-                    for tense, conj_data in list(conjugations.items()):
-                        st.markdown(f"**Böjning: {tense}**")
-                        curr_t = conj_data.get("translit", "") if isinstance(conj_data, dict) else ""
-                        curr_d = conj_data.get("devanagari", "") if isinstance(conj_data, dict) else str(conj_data)
-
-                        ed_t = st.text_input(f"Romaji ({tense}):", value=curr_t, key=f"t2_ed_t_{selected_verb.get('word_sv')}_{tense}")
-                        ed_d = st.text_input(f"Devanagari ({tense}):", value=curr_d, key=f"t2_ed_d_{selected_verb.get('word_sv')}_{tense}")
-
-                        col_bx1, col_bx2 = st.columns(2)
-                        with col_bx1:
-                            if st.button("💾 Spara ändring", key=f"t2_save_c_{selected_verb.get('word_sv')}_{tense}"):
-                                for v in raw_verbs_data:
-                                    if v.get("word_sv") == selected_verb.get("word_sv"):
-                                        v["conjugations"][tense] = {"translit": ed_t, "devanagari": ed_d}
-                                        break
-                                save_json("verbs.json", raw_verbs_data)
-                                st.success(f"Uppdaterade {tense}!")
-                                st.rerun()
-                        with col_bx2:
-                            if st.button("🗑️ Radera böjning", key=f"t2_del_c_{selected_verb.get('word_sv')}_{tense}"):
-                                for v in raw_verbs_data:
-                                    if v.get("word_sv") == selected_verb.get("word_sv"):
-                                        if tense in v["conjugations"]:
-                                            del v["conjugations"][tense]
-                                        break
-                                save_json("verbs.json", raw_verbs_data)
-                                st.success(f"Raderade {tense}!")
-                                st.rerun()
-                        st.write("---")
-
-            st.divider()
-            st.subheader("⚙️️ Lägg till / Redigera / Radera Tidsform")
-            
-            # Lägg till ny tidsform
-            added_tense_input = st.text_input("Skriv ny tidsform att lägga till i rullistan:", key="t2_add_tense_input")
-            if st.button("Lägg till tidsform", key="t2_add_tense_btn"):
-                if added_tense_input.strip():
-                    t_list = load_json("tenses.json", DEFAULT_TENSES)
-                    if added_tense_input.strip() not in t_list:
-                        t_list.append(added_tense_input.strip())
-                        save_json("tenses.json", t_list)
-                        st.success(f"Tidsformen '{added_tense_input.strip()}' lades till!")
-                        st.rerun()
-                    else:
-                        st.warning("Tidsformen finns redan.")
-                else:
-                    st.error("Skriv in en tidsform.")
-
-            # Hantera/radera befintliga tidsformer
-            active_tenses = load_json("tenses.json", DEFAULT_TENSES)
-            selected_tense_to_del = st.selectbox("Välj tidsform att radera från rullistan:", active_tenses, key="t2_del_tense_select")
-            if st.button("Radera vald tidsform", key="t2_del_tense_btn"):
-                if len(active_tenses) <= 1:
-                    st.error("Du måste ha minst en tidsform kvar.")
-                else:
-                    active_tenses.remove(selected_tense_to_del)
-                    save_json("tenses.json", active_tenses)
-                    st.success(f"Tidsformen '{selected_tense_to_del}' har raderats!")
-                    st.rerun()
-
-    with right_col:
-        render_special_chars_sidebar()
+        # Hantera/radera befintliga tidsformer
+        active_tenses = load_json("tenses.json", DEFAULT_TENSES)
+        selected_tense_to_del = st.selectbox("Välj tidsform att radera från rullistan:", active_tenses, key="t2_del_tense_select")
+        if st.button("Radera vald tidsform", key="t2_del_tense_btn"):
+            if len(active_tenses) <= 1:
+                st.error("Du måste ha minst en tidsform kvar.")
+            else:
+                active_tenses.remove(selected_tense_to_del)
+                save_json("tenses.json", active_tenses)
+                st.success(f"Tidsformen '{selected_tense_to_del}' har raderats!")
+                st.rerun()
 
 # --- FLIK 3: ORDFÖRRÅD (LISTA & SORTERING) ---
 with tab3:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("📚 Ordförråd - Alla sparade ord")
-        st.write("Här kan du se en översikt över alla ord i dina kategorier. Klicka på kolumnrubrikerna för att sortera efter önskad ordning.")
+    st.header("📚 Ordförråd - Alla sparade ord")
+    st.write("Här kan du se en översikt över alla ord i dina kategorier. Klicka på kolumnrubrikerna för att sortera efter önskad ordning.")
 
-        cat_files = get_category_files()
-        all_words_list = []
+    cat_files = get_category_files()
+    all_words_list = []
 
-        for cfile in cat_files:
-            cat_label = cfile.replace(".json", "").capitalize()
-            cdata = load_json(cfile, [])
-            for item in cdata:
-                if item and item.get("word_sv"):
-                    all_words_list.append({
-                        "Kategori": cat_label,
-                        "Svenska": item.get("word_sv", ""),
-                        "Romaji": item.get("transliteration", ""),
-                        "Devanagari": item.get("devanagari", item.get("word_np", ""))
-                    })
+    for cfile in cat_files:
+        cat_label = cfile.replace(".json", "").capitalize()
+        cdata = load_json(cfile, [])
+        for item in cdata:
+            if item and item.get("word_sv"):
+                all_words_list.append({
+                    "Kategori": cat_label,
+                    "Svenska": item.get("word_sv", ""),
+                    "Romaji": item.get("transliteration", ""),
+                    "Devanagari": item.get("devanagari", item.get("word_np", ""))
+                })
 
-        if not all_words_list:
-            st.info("Inga ord tillagda än.")
-        else:
-            st.dataframe(all_words_list, use_container_width=True, hide_index=True)
-
-    with right_col:
-        render_special_chars_sidebar()
+    if not all_words_list:
+        st.info("Inga ord tillagda än.")
+    else:
+        st.dataframe(all_words_list, use_container_width=True, hide_index=True)
 
 # --- FLIK 4: SKRIVBOK & FRU-RÄTTNING ---
 with tab4:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("Skrivbok & Fru-rättning")
-        user_sentences_data = load_json("user_sentences.json", DEFAULT_USER_SENTENCES)
+    st.header("Skrivbok & Fru-rättning")
+    user_sentences_data = load_json("user_sentences.json", DEFAULT_USER_SENTENCES)
 
-        if not user_sentences_data:
-            st.info("Inga sparade meningar.")
-        else:
-            for idx, item in enumerate(user_sentences_data):
-                with st.container():
-                    st.markdown(f"**Mening {idx+1}:**")
-                    st.markdown(f"**Svenska:** {item['sv']}")
-                    st.markdown(f"**Nepalesiska:** {item['np']}")
-                    status = item.get('status', 'Ej granskad')
-                    st.caption(f"Status: {status}")
+    if not user_sentences_data:
+        st.info("Inga sparade meningar.")
+    else:
+        for idx, item in enumerate(user_sentences_data):
+            with st.container():
+                st.markdown(f"**Mening {idx+1}:**")
+                st.markdown(f"**Svenska:** {item['sv']}")
+                st.markdown(f"**Nepalesiska:** {item['np']}")
+                status = item.get('status', 'Ej granskad')
+                st.caption(f"Status: {status}")
 
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        if status != "Granskad":
-                            if st.button("✔️ Markera som Granskad", key=f"rev_{idx}"):
-                                user_sentences_data[idx]['status'] = "Granskad"
-                                save_json("user_sentences.json", user_sentences_data)
-                                st.rerun()
-                        else:
-                            if st.button("↩️ Ändra till Ej granskad", key=f"unrev_{idx}"):
-                                user_sentences_data[idx]['status'] = "Ej granskad"
-                                save_json("user_sentences.json", user_sentences_data)
-                                st.rerun()
-                    with c2:
-                        if st.button(f"🗑️ Radera", key=f"del_sent_{idx}"):
-                            user_sentences_data.pop(idx)
+                c1, c2 = st.columns(2)
+                with c1:
+                    if status != "Granskad":
+                        if st.button("✔️ Markera som Granskad", key=f"rev_{idx}"):
+                            user_sentences_data[idx]['status'] = "Granskad"
                             save_json("user_sentences.json", user_sentences_data)
                             st.rerun()
-                    st.write("---")
-    with right_col:
-        render_special_chars_sidebar()
+                    else:
+                        if st.button("↩️ Ändra till Ej granskad", key=f"unrev_{idx}"):
+                            user_sentences_data[idx]['status'] = "Ej granskad"
+                            save_json("user_sentences.json", user_sentences_data)
+                            st.rerun()
+                with c2:
+                    if st.button(f"🗑️ Radera", key=f"del_sent_{idx}"):
+                        user_sentences_data.pop(idx)
+                        save_json("user_sentences.json", user_sentences_data)
+                        st.rerun()
+                st.write("---")
 
 # --- FLIK 5: GLOS-QUIZ ---
 with tab5:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("Glos-Quiz")
-        cat_files = get_category_files()
-        cat_names = [f.replace(".json", "") for f in cat_files]
-        quiz_cat = st.selectbox("Kategori:", cat_names, key="t5_cat")
-        active_vocab = load_json(f"{quiz_cat}.json", [])
-        quiz_mode = st.radio("Läge:", ["Fritext", "Flerval (10 alternativ)"], horizontal=True, key="t5_mode")
+    st.header("Glos-Quiz")
+    cat_files = get_category_files()
+    cat_names = [f.replace(".json", "") for f in cat_files]
+    quiz_cat = st.selectbox("Kategori:", cat_names, key="t5_cat")
+    active_vocab = load_json(f"{quiz_cat}.json", [])
+    quiz_mode = st.radio("Läge:", ["Fritext", "Flerval (10 alternativ)"], horizontal=True, key="t5_mode")
 
-        if "t5_item" not in st.session_state or st.session_state.get("t5_cat_last") != quiz_cat:
-            st.session_state.t5_cat_last = quiz_cat
-            if active_vocab:
+    if "t5_item" not in st.session_state or st.session_state.get("t5_cat_last") != quiz_cat:
+        st.session_state.t5_cat_last = quiz_cat
+        if active_vocab:
+            st.session_state.t5_item = random.choice(active_vocab)
+
+    if not active_vocab:
+        st.warning("Tom kategori.")
+    else:
+        current_q = st.session_state.get("t5_item", random.choice(active_vocab))
+        st.markdown(f"### Vad betyder **'{current_q.get('word_sv')}'**?")
+
+        if "Fritext" in quiz_mode:
+            user_guess = st.text_input("Ditt svar:", key="t5_free")
+            if st.button("Kontrollera", key="t5_check"):
+                if user_guess.strip().lower() in [current_q.get('devanagari', '').lower(), current_q.get('transliteration', '').lower()]:
+                    st.success("🎉 Rätt!")
+                else:
+                    st.error(f"❌ Rätt svar: 🔤 {current_q.get('transliteration')} | 🇳🇵 {current_q.get('devanagari')}")
+            if st.button("Nästa ord", key="t5_next"):
                 st.session_state.t5_item = random.choice(active_vocab)
-
-        if not active_vocab:
-            st.warning("Tom kategori.")
+                st.rerun()
         else:
-            current_q = st.session_state.get("t5_item", random.choice(active_vocab))
-            st.markdown(f"### Vad betyder **'{current_q.get('word_sv')}'**?")
-
-            if "Fritext" in quiz_mode:
-                user_guess = st.text_input("Ditt svar:", key="t5_free")
-                if st.button("Kontrollera", key="t5_check"):
-                    if user_guess.strip().lower() in [current_q.get('devanagari', '').lower(), current_q.get('transliteration', '').lower()]:
-                        st.success("🎉 Rätt!")
-                    else:
-                        st.error(f"❌ Rätt svar: 🔤 {current_q.get('transliteration')} | 🇳🇵 {current_q.get('devanagari')}")
-                if st.button("Nästa ord", key="t5_next"):
-                    st.session_state.t5_item = random.choice(active_vocab)
-                    st.rerun()
-            else:
-                others = [i for i in active_vocab if i != current_q]
-                options = random.sample(others, min(9, len(others))) + [current_q]
-                random.shuffle(options)
-                opt_labels = [f"🔤 {o.get('transliteration')} | 🇳🇵 {o.get('devanagari')}" for o in options]
-                chosen = st.radio("Välj alternativ:", opt_labels, key="t5_radio")
-                if st.button("Kontrollera flerval", key="t5_check_mc"):
-                    correct_label = f"🔤 {current_q.get('transliteration')} | 🇳🇵 {current_q.get('devanagari')}"
-                    if chosen == correct_label:
-                        st.success("🎉 Rätt!")
-                    else:
-                        st.error(f"❌ Rätt svar: {correct_label}")
-                if st.button("Nästa", key="t5_next_mc"):
-                    st.session_state.t5_item = random.choice(active_vocab)
-                    st.rerun()
-    with right_col:
-        render_special_chars_sidebar()
+            others = [i for i in active_vocab if i != current_q]
+            options = random.sample(others, min(9, len(others))) + [current_q]
+            random.shuffle(options)
+            opt_labels = [f"🔤 {o.get('transliteration')} | 🇳🇵 {o.get('devanagari')}" for o in options]
+            chosen = st.radio("Välj alternativ:", opt_labels, key="t5_radio")
+            if st.button("Kontrollera flerval", key="t5_check_mc"):
+                correct_label = f"🔤 {current_q.get('transliteration')} | 🇳🇵 {current_q.get('devanagari')}"
+                if chosen == correct_label:
+                    st.success("🎉 Rätt!")
+                else:
+                    st.error(f"❌ Rätt svar: {correct_label}")
+            if st.button("Nästa", key="t5_next_mc"):
+                st.session_state.t5_item = random.choice(active_vocab)
+                st.rerun()
 
 # --- FLIK 6: MENINGSQUIZ ---
 with tab6:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("💬 Meningsquiz (Granskade meningar)")
-        
-        raw_reviewed = [s for s in user_sentences_data if s.get("status") == "Granskad"]
-        unique_reviewed = []
-        seen = set()
-        for s in raw_reviewed:
-            identifier = (s.get("sv"), s.get("np"))
-            if identifier not in seen:
-                seen.add(identifier)
-                unique_reviewed.append(s)
+    st.header("💬 Meningsquiz (Granskade meningar)")
+    
+    raw_reviewed = [s for s in user_sentences_data if s.get("status") == "Granskad"]
+    unique_reviewed = []
+    seen = set()
+    for s in raw_reviewed:
+        identifier = (s.get("sv"), s.get("np"))
+        if identifier not in seen:
+            seen.add(identifier)
+            unique_reviewed.append(s)
 
-        direction = st.radio("Quiz-riktning:", ["Nepalesiska ➔ Svenska", "Svenska ➔ Nepalesiska"], horizontal=True, key="t6_dir")
+    direction = st.radio("Quiz-riktning:", ["Nepalesiska ➔ Svenska", "Svenska ➔ Nepalesiska"], horizontal=True, key="t6_dir")
 
-        if not unique_reviewed:
-            st.info("Inga granskade meningar finns i skrivboken än. Gå till Skrivboken och markera några meningar som granskade!")
+    if not unique_reviewed:
+        st.info("Inga granskade meningar finns i skrivboken än. Gå till Skrivboken och markera några meningar som granskade!")
+    else:
+        if "t6_item" not in st.session_state:
+            st.session_state.t6_item = random.choice(unique_reviewed)
+
+        current_sent = st.session_state.t6_item
+
+        if "Nepalesiska" in direction:
+            st.markdown(f"### Översätt till svenska:\n\n🇳🇵 **{current_sent['np']}**")
+            if st.button("Visa rätt svar", key="t6_show"):
+                st.success(f"🇸🇪 **{current_sent['sv']}**")
         else:
-            if "t6_item" not in st.session_state:
-                st.session_state.t6_item = random.choice(unique_reviewed)
+            st.markdown(f"### Översätt till nepalesiska:\n\n🇸🇪 **{current_sent['sv']}**")
+            if st.button("Visa rätt svar", key="t6_show"):
+                st.success(f"🇳🇵 **{current_sent['np']}**")
 
-            current_sent = st.session_state.t6_item
-
-            if "Nepalesiska" in direction:
-                st.markdown(f"### Översätt till svenska:\n\n🇳🇵 **{current_sent['np']}**")
-                if st.button("Visa rätt svar", key="t6_show"):
-                    st.success(f"🇸🇪 **{current_sent['sv']}**")
-            else:
-                st.markdown(f"### Översätt till nepalesiska:\n\n🇸🇪 **{current_sent['sv']}**")
-                if st.button("Visa rätt svar", key="t6_show"):
-                    st.success(f"🇳🇵 **{current_sent['np']}**")
-
-            if st.button("➡️ Nästa mening", key="t6_next"):
-                st.session_state.t6_item = random.choice(unique_reviewed)
-                st.rerun()
-    with right_col:
-        render_special_chars_sidebar()
+        if st.button("➡️ Nästa mening", key="t6_next"):
+            st.session_state.t6_item = random.choice(unique_reviewed)
+            st.rerun()
 
 # --- FLIK 7: REDIGERA ORDFÖRRÅD ---
 with tab7:
-    main_col, right_col = st.columns([3, 1])
-    with main_col:
-        st.header("⚙️ Redigera Ordförråd & Kategorier")
+    st.header("⚙️ Redigera Ordförråd & Kategorier")
+    
+    col_a, col_b = st.columns(2)
+
+    # 1. Lägg till ord
+    with col_a:
+        st.subheader("➕ Lägg till nytt ord")
+        cat_files = get_category_files()
+        category_names = [f.replace(".json", "") for f in cat_files]
+        selected_cat = st.selectbox("Kategori:", category_names, key="t7_cat")
+        word_sv = st.text_input("Svenska:", key="t7_sv")
+        translit = st.text_input("Romaji:", key="t7_trans")
+        devanagari = st.text_input("Devanagari:", key="t7_dev")
+
+        if st.button("Spara ord", key="t7_save"):
+            if word_sv and (translit or devanagari):
+                filename = f"{selected_cat}.json"
+                current_data = load_json(filename, [])
+                new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
+                if selected_cat == "verbs":
+                    new_item["conjugations"] = {}
+                current_data.append(new_item)
+                save_json(filename, current_data)
+                st.success("Ord sparat!")
+                st.rerun()
+            else:
+                st.error("Fyll i svenska samt romaji eller devanagari.")
+
+    # 2. Hantera Kategorier (Skapa / Radera)
+    with col_b:
+        st.subheader("📁 Hantera Kategorier")
+        new_cat_name = st.text_input("Nytt kategorinamn:", key="t7_new_cat")
+        if st.button("Skapa kategori", key="t7_create_cat"):
+            if new_cat_name:
+                clean_name = new_cat_name.strip().lower().replace(" ", "_")
+                filename = f"{clean_name}.json"
+                if not os.path.exists(os.path.join(DATA_DIR, filename)):
+                    save_json(filename, [])
+                    st.success(f"Skapade '{clean_name}'!")
+                    st.rerun()
+                else:
+                    st.warning("Kategorin finns redan.")
+
+        st.markdown("---")
+        st.subheader("🗑️ Radera kategori")
+        del_cat_options = [f.replace(".json", "") for f in cat_files]
+        selected_del_cat = st.selectbox("Välj kategori att ta bort:", del_cat_options, key="t7_del_cat_select")
         
-        col_a, col_b = st.columns(2)
-
-        # 1. Lägg till ord
-        with col_a:
-            st.subheader("➕ Lägg till nytt ord")
-            cat_files = get_category_files()
-            category_names = [f.replace(".json", "") for f in cat_files]
-            selected_cat = st.selectbox("Kategori:", category_names, key="t7_cat")
-            word_sv = st.text_input("Svenska:", key="t7_sv")
-            translit = st.text_input("Romaji:", key="t7_trans")
-            devanagari = st.text_input("Devanagari:", key="t7_dev")
-
-            if st.button("Spara ord", key="t7_save"):
-                if word_sv and (translit or devanagari):
-                    filename = f"{selected_cat}.json"
-                    current_data = load_json(filename, [])
-                    new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
-                    if selected_cat == "verbs":
-                        new_item["conjugations"] = {}
-                    current_data.append(new_item)
-                    save_json(filename, current_data)
-                    st.success("Ord sparat!")
-                    st.rerun()
-                else:
-                    st.error("Fyll i svenska samt romaji eller devanagari.")
-
-        # 2. Hantera Kategorier (Skapa / Radera)
-        with col_b:
-            st.subheader("📁 Hantera Kategorier")
-            new_cat_name = st.text_input("Nytt kategorinamn:", key="t7_new_cat")
-            if st.button("Skapa kategori", key="t7_create_cat"):
-                if new_cat_name:
-                    clean_name = new_cat_name.strip().lower().replace(" ", "_")
-                    filename = f"{clean_name}.json"
-                    if not os.path.exists(os.path.join(DATA_DIR, filename)):
-                        save_json(filename, [])
-                        st.success(f"Skapade '{clean_name}'!")
-                        st.rerun()
-                    else:
-                        st.warning("Kategorin finns redan.")
-
-            st.markdown("---")
-            st.subheader("🗑️ Radera kategori")
-            del_cat_options = [f.replace(".json", "") for f in cat_files]
-            selected_del_cat = st.selectbox("Välj kategori att ta bort:", del_cat_options, key="t7_del_cat_select")
-            
-            if st.button("Radera vald kategori", key="t7_del_cat_btn"):
-                if selected_del_cat in ["nouns", "time", "verbs"]:
-                    st.error("Standardkategorier (nouns, time, verbs) kan inte raderas.")
-                else:
-                    target_file = os.path.join(DATA_DIR, f"{selected_del_cat}.json")
-                    if os.path.exists(target_file):
-                        os.remove(target_file)
-                        st.success(f"Kategorin '{selected_del_cat}' har raderats!")
-                        st.rerun()
-
-        st.divider()
-
-        # 3. Hantera ord i specifik kategori (Redigera / Radera ord)
-        st.subheader("📋 Redigera eller Radera ord i kategori")
-        view_cat = st.selectbox("Välj kategori att hantera:", category_names, key="t7_manage_cat")
-        cat_items = load_json(f"{view_cat}.json", [])
-
-        if not cat_items:
-            st.info("Inga ord i denna kategori än.")
-        else:
-            item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
-            
-            if "t7_last_manage_cat" not in st.session_state or st.session_state.t7_last_manage_cat != view_cat:
-                st.session_state.t7_last_manage_cat = view_cat
-                st.session_state.t7_item_select_idx = 0
-
-            selected_item_label = st.selectbox("Välj ord att redigera/radera:", list(item_choices.keys()), key="t7_item_select")
-            selected_idx = item_choices[selected_item_label]
-            current_item = cat_items[selected_idx]
-
-            ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t7_ed_sv_{selected_idx}")
-            ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t7_ed_trans_{selected_idx}")
-            ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t7_ed_dev_{selected_idx}")
-
-            col_m1, col_m2 = st.columns(2)
-            with col_m1:
-                if st.button("💾 Spara ändringar i ord", key="t7_save_word"):
-                    current_item["word_sv"] = ed_sv
-                    current_item["transliteration"] = ed_trans
-                    current_item["devanagari"] = ed_dev
-                    cat_items[selected_idx] = current_item
-                    save_json(f"{view_cat}.json", cat_items)
-                    st.success("Ordet uppdaterades!")
-                    st.rerun()
-            with col_m2:
-                if st.button("🗑️ Radera ordet", key="t7_del_word"):
-                    cat_items.pop(selected_idx)
-                    save_json(f"{view_cat}.json", cat_items)
-                    st.success("Ordet raderades!")
+        if st.button("Radera vald kategori", key="t7_del_cat_btn"):
+            if selected_del_cat in ["nouns", "time", "verbs"]:
+                st.error("Standardkategorier (nouns, time, verbs) kan inte raderas.")
+            else:
+                target_file = os.path.join(DATA_DIR, f"{selected_del_cat}.json")
+                if os.path.exists(target_file):
+                    os.remove(target_file)
+                    st.success(f"Kategorin '{selected_del_cat}' har raderats!")
                     st.rerun()
 
-    with right_col:
-        render_special_chars_sidebar()
+    st.divider()
+
+    # 3. Hantera ord i specifik kategori (Redigera / Radera ord)
+    st.subheader("📋 Redigera eller Radera ord i kategori")
+    view_cat = st.selectbox("Välj kategori att hantera:", category_names, key="t7_manage_cat")
+    cat_items = load_json(f"{view_cat}.json", [])
+
+    if not cat_items:
+        st.info("Inga ord i denna kategori än.")
+    else:
+        item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
+        
+        if "t7_last_manage_cat" not in st.session_state or st.session_state.t7_last_manage_cat != view_cat:
+            st.session_state.t7_last_manage_cat = view_cat
+            st.session_state.t7_item_select_idx = 0
+
+        selected_item_label = st.selectbox("Välj ord att redigera/radera:", list(item_choices.keys()), key="t7_item_select")
+        selected_idx = item_choices[selected_item_label]
+        current_item = cat_items[selected_idx]
+
+        ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t7_ed_sv_{selected_idx}")
+        ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t7_ed_trans_{selected_idx}")
+        ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t7_ed_dev_{selected_idx}")
+
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            if st.button("💾 Spara ändringar i ord", key="t7_save_word"):
+                current_item["word_sv"] = ed_sv
+                current_item["transliteration"] = ed_trans
+                current_item["devanagari"] = ed_dev
+                cat_items[selected_idx] = current_item
+                save_json(f"{view_cat}.json", cat_items)
+                st.success("Ordet uppdaterades!")
+                st.rerun()
+        with col_m2:
+            if st.button("🗑️ Radera ordet", key="t7_del_word"):
+                cat_items.pop(selected_idx)
+                save_json(f"{view_cat}.json", cat_items)
+                st.success("Ordet raderades!")
+                st.rerun()
