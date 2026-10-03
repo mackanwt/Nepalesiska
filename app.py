@@ -93,7 +93,7 @@ def render_special_chars_sidebar():
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
-    # Uppdaterat med rätt tecken istället för det kryssade
+    # Korrekt teckenpanel med tilde/makron över a
     chars = ["ā", "ī", "ū", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
     
     cols = st.columns(3)
@@ -233,6 +233,32 @@ with tab2:
                     st.rerun()
                 else:
                     st.error("Fyll i tidsform och minst en form.")
+
+            st.divider()
+            with st.expander("✏️ Redigera eller Radera detta verb"):
+                edit_sv = st.text_input("Svenska (grundform):", value=selected_verb.get("word_sv", ""), key="t2_edit_sv")
+                edit_trans = st.text_input("Romaji (grundform):", value=selected_verb.get("transliteration", ""), key="t2_edit_trans")
+                edit_dev = st.text_input("Devanagari (grundform):", value=selected_verb.get("devanagari", ""), key="t2_edit_dev")
+
+                col_e1, col_e2 = st.columns(2)
+                with col_e1:
+                    if st.button("💾 Spara ändringar i verb", key="t2_save_edit"):
+                        for v in verbs_data:
+                            if v.get("word_sv") == selected_verb.get("word_sv"):
+                                v["word_sv"] = edit_sv
+                                v["transliteration"] = edit_trans
+                                v["devanagari"] = edit_dev
+                                break
+                        save_json("verbs.json", verbs_data)
+                        st.success("Verbet uppdaterat!")
+                        st.rerun()
+                with col_e2:
+                    if st.button("🗑️ Radera hela verbet", key="t2_delete_verb"):
+                        verbs_data = [v for v in verbs_data if v.get("word_sv") != selected_verb.get("word_sv")]
+                        save_json("verbs.json", verbs_data)
+                        st.success("Verbet raderades!")
+                        st.rerun()
+
     with right_col:
         render_special_chars_sidebar()
 
@@ -277,9 +303,39 @@ with tab3:
                         st.warning("Kategorin finns redan.")
 
         st.divider()
-        view_cat = st.selectbox("Visa ord i kategori:", category_names, key="t3_view_cat")
-        for item in load_json(f"{view_cat}.json", []):
-            st.text(f"🇸🇪 {item.get('word_sv', '')}  |  🔤 {item.get('transliteration', '')}  |  🇳🇵 {item.get('devanagari', '')}")
+        st.subheader("📋 Hantera ord i kategori (Redigera / Radera)")
+        view_cat = st.selectbox("Välj kategori att hantera:", category_names, key="t3_manage_cat")
+        cat_items = load_json(f"{view_cat}.json", [])
+
+        if not cat_items:
+            st.info("Inga ord i denna kategori än.")
+        else:
+            item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
+            selected_item_label = st.selectbox("Välj ord att redigera/radera:", list(item_choices.keys()), key="t3_item_select")
+            selected_idx = item_choices[selected_item_label]
+            current_item = cat_items[selected_idx]
+
+            ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key="t3_ed_sv")
+            ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key="t3_ed_trans")
+            ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key="t3_ed_dev")
+
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                if st.button("💾 Spara ändringar i ord", key="t3_save_word"):
+                    cat_items[selected_idx] = {
+                        "word_sv": ed_sv,
+                        "transliteration": ed_trans,
+                        "devanagari": ed_dev
+                    }
+                    save_json(f"{view_cat}.json", cat_items)
+                    st.success("Ordet uppdaterades!")
+                    st.rerun()
+            with col_m2:
+                if st.button("🗑️ Radera ordet", key="t3_del_word"):
+                    cat_items.pop(selected_idx)
+                    save_json(f"{view_cat}.json", cat_items)
+                    st.success("Ordet raderades!")
+                    st.rerun()
 
     with right_col:
         render_special_chars_sidebar()
