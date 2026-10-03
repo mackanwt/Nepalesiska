@@ -35,12 +35,12 @@ def save_json(filename, data):
 
 # Hämta alla kategori-filer dynamiskt från data-mappen
 def get_category_files():
-    files = ["nouns.json", "time.json"]
+    # Inkluderar verbs.json som en vanlig kategori om den finns
+    files = ["nouns.json", "time.json", "verbs.json"]
     if os.path.exists(DATA_DIR):
         for f in os.listdir(DATA_DIR):
             if f.endswith(".json") and f not in [
                 "sentences.json",
-                "verbs.json",
                 "user_sentences.json",
             ]:
                 if f not in files:
@@ -51,12 +51,15 @@ def get_category_files():
 # Standarddata om filer saknas
 DEFAULT_VERBS = [
     {
-        "verb_sv": "att äta",
-        "verb_np": "खानू",
+        "word_sv": "att äta",
+        "word_np": "खानू",
         "transliteration": "khanu",
         "conjugations": {
-            "Nutid (jag äter)": "ma khanchu",
-            "Dåtid (jag åt)": "ma khaaye",
+            "Nutid (jag äter)": {
+                "translit": "ma khanchu",
+                "np": "म खानschu",
+            },
+            "Dåtid (jag åt)": {"translit": "ma khaaye", "np": "म खाइए"},
         },
     }
 ]
@@ -81,8 +84,11 @@ DEFAULT_USER_SENTENCES = [
 ]
 
 # Ladda data
-verbs_data = load_json("verbs.json", DEFAULT_VERBS)
 user_sentences_data = load_json("user_sentences.json", DEFAULT_USER_SENTENCES)
+# Säkerställ att grundfiler finns
+load_json("verbs.json", DEFAULT_VERBS)
+load_json("nouns.json", DEFAULT_NOUNS)
+load_json("time.json", DEFAULT_TIME)
 
 # --- APP-STRUKTUR (FLIKAR) ---
 st.title("🇳🇵 Nepalesiska - Träningsapp")
@@ -110,12 +116,11 @@ with tab1:
     cat_files = get_category_files()
     cat_display_names = {f: f.replace(".json", "").capitalize() for f in cat_files}
 
-    # Multiselect för att välja vilka kategorier som ska slumpas
     selected_cats = st.multiselect(
         "Välj kategorier att slumpa ord från:",
         options=cat_files,
         format_func=lambda x: cat_display_names[x],
-        default=cat_files,
+        default=[c for c in cat_files if c in ["nouns.json", "time.json"]],
     )
 
     if st.button("🎲 Slumpa fram nya ord"):
@@ -131,8 +136,10 @@ with tab1:
                     selected_words[cat_name] = chosen
             st.session_state.random_challenge = selected_words
 
-    # Hämta eller initiera om den är tom
-    if "random_challenge" not in st.session_state or not st.session_state.random_challenge:
+    if (
+        "random_challenge" not in st.session_state
+        or not st.session_state.random_challenge
+    ):
         if selected_cats:
             selected_words = {}
             for cfile in selected_cats:
@@ -150,15 +157,18 @@ with tab1:
             st.session_state.random_challenge.items()
         ):
             with cols[idx]:
+                np_text = word_obj.get("word_np", "")
+                trans_text = word_obj.get("transliteration", "")
                 st.info(
-                    f"**{cat}**\n\n🇳🇵 {word_obj.get('word_np', '')}\n\n🔤 *{word_obj.get('transliteration', '')}*"
+                    f"**{cat}**\n\n🔤 *{trans_text}*\n\n🇳🇵 {np_text}"
                 )
 
-        # Hint-knapp för att se svensk betydelse
         with st.expander("🔍 Hint: Visa svensk betydelse för de slumpade orden"):
             for cat, word_obj in st.session_state.random_challenge.items():
+                trans = word_obj.get("transliteration", "")
+                np_t = word_obj.get("word_np", "")
                 st.write(
-                    f"**{cat}:** {word_obj.get('word_sv', '')} (*{word_obj.get('transliteration', '')}*)"
+                    f"**{cat}:** {word_obj.get('word_sv', '')} (*{trans}* / {np_t})"
                 )
 
     with st.expander("💡 Visa alla tillgängliga ord i kategorierna som referens"):
@@ -167,9 +177,9 @@ with tab1:
             cdata = load_json(cfile, [])
             st.markdown(f"**Kategori: {cat_name}**")
             for item in cdata:
-                st.text(
-                    f"• {item.get('word_np')} ({item.get('transliteration')})"
-                )
+                trans = item.get("transliteration", "")
+                np_t = item.get("word_np", "")
+                st.text(f"• {trans} ({np_t})")
 
     st.divider()
     st.markdown("### Skriv din mening:")
@@ -193,74 +203,68 @@ with tab1:
         else:
             st.error("Fyll i både den svenska och nepalesiska meningen.")
 
-# --- FLIK 2: VERBBÖJNINGAR & NYA BÖJNINGAR ---
+# --- FLIK 2: VERBBÖJNINGAR ---
 with tab2:
     st.header("Verbböjningar & Lexikon")
 
+    verbs_data = load_json("verbs.json", DEFAULT_VERBS)
+
     if not verbs_data:
-        st.warning("Inga verb inlagda än.")
+        st.warning(
+            "Inga verb inlagda än. Lägg till verb i 'Ordförråd & Kategorier' under kategorin 'verbs'."
+        )
     else:
         verb_choices = {
-            f"{v['verb_sv']} - {v.get('verb_np', '')} ({v.get('transliteration', '')})": v
+            f"{v.get('word_sv', '')} - {v.get('transliteration', '')} ({v.get('word_np', '')})": v
             for v in verbs_data
         }
         selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()))
         selected_verb = verb_choices[selected_verb_key]
 
         st.markdown(
-            f"### Grundform: **{selected_verb.get('verb_np', '')}** (*{selected_verb.get('transliteration', '')}*)"
+            f"### Grundform: 🔤 *{selected_verb.get('transliteration', '')}* | 🇳🇵 {selected_verb.get('word_np', '')}"
         )
-        st.caption(f"Svenska: {selected_verb['verb_sv']}")
+        st.caption(f"Svenska: {selected_verb.get('word_sv', '')}")
 
         st.write("#### Nuvarande böjningar:")
         if selected_verb.get("conjugations"):
-            for tense, conjugation in selected_verb["conjugations"].items():
-                st.info(f"**{tense}:** {conjugation}")
+            for tense, conj_data in selected_verb["conjugations"].items():
+                # Hantera både gammal struktur (sträng) och ny struktur (dict med romaji och np)
+                if isinstance(conj_data, dict):
+                    t_val = conj_data.get("translit", "")
+                    np_val = conj_data.get("np", "")
+                    st.info(f"**{tense}:** 🔤 {t_val}  |  🇳🇵 {np_val}")
+                else:
+                    st.info(f"**{tense}:** {conj_data}")
         else:
             st.write("Inga böjningar tillagda än.")
 
         st.divider()
         st.subheader("➕ Lägg till ny böjning för detta verb")
         new_tense_name = st.text_input(
-            "Tidsform / Beskrivning (t.ex. 'Imperativ (gör det!)' eller 'Dåtid'):"
+            "Tidsform / Beskrivning (t.ex. 'Nutid', 'Dåtid'):"
         )
-        new_tense_value = st.text_input("Böjd form på nepalesiska / romaji:")
+        new_tense_trans = st.text_input("Böjd form med Romaji (t.ex. ma khanchu):")
+        new_tense_np = st.text_input("Böjd form med Devanagari (t.ex. म खानchu):")
 
         if st.button("Spara ny böjning"):
-            if new_tense_name and new_tense_value:
-                # Hitta rätt verb i listan och uppdatera
+            if new_tense_name and new_tense_trans:
                 for v in verbs_data:
-                    if v["verb_sv"] == selected_verb["verb_sv"]:
+                    if v.get("word_sv") == selected_verb.get("word_sv"):
                         if "conjugations" not in v:
                             v["conjugations"] = {}
-                        v["conjugations"][new_tense_name] = new_tense_value
+                        v["conjugations"][new_tense_name] = {
+                            "translit": new_tense_trans,
+                            "np": new_tense_np,
+                        }
                         break
                 save_json("verbs.json", verbs_data)
                 st.success(
-                    f"Lade till '{new_tense_name}' för {selected_verb['verb_sv']}! Ladda om sidan om det inte syns direkt."
+                    f"Lade till '{new_tense_name}' för {selected_verb.get('word_sv')}!"
                 )
+                st.rerun()
             else:
-                st.error("Fyll i både tidsform och böjd form.")
-
-        st.divider()
-        with st.expander("➕ Lägg till ett helt nytt verb i lexikonet"):
-            new_v_sv = st.text_input("Svenska (t.ex. att sova):")
-            new_v_np = st.text_input("Nepalesiska tecken (t.ex. सुत्नु):")
-            new_v_trans = st.text_input("Romaji (t.ex. sutnu):")
-            if st.button("Spara nytt verb"):
-                if new_v_sv and new_v_trans:
-                    verbs_data.append(
-                        {
-                            "verb_sv": new_v_sv,
-                            "verb_np": new_v_np,
-                            "transliteration": new_v_trans,
-                            "conjugations": {},
-                        }
-                    )
-                    save_json("verbs.json", verbs_data)
-                    st.success("Nytt verb tillagt!")
-                else:
-                    st.error("Fyll i åtminstone svenska och romaji.")
+                st.error("Fyll i åtminstone tidsform och romaji.")
 
 # --- FLIK 3: ORDFÖRRÅD & KATEGORIER ---
 with tab3:
@@ -275,11 +279,11 @@ with tab3:
 
         selected_cat = st.selectbox("Välj kategori:", category_names)
         word_sv = st.text_input("Svenska:")
-        word_np = st.text_input("Nepalesiska tecken (Devanagari):")
         translit = st.text_input("Romaji / Transliteration (t.ex. 'khaja'):")
+        word_np = st.text_input("Nepalesiska tecken (Devanagari):")
 
         if st.button("Spara ord"):
-            if word_sv and (word_np or translit):
+            if word_sv and (translit or word_np):
                 filename = f"{selected_cat}.json"
                 current_data = load_json(filename, [])
                 current_data.append(
@@ -294,7 +298,9 @@ with tab3:
                     f"Sparade '{word_sv}' i kategorin '{selected_cat}'!"
                 )
             else:
-                st.error("Fyll i svenska samt minst en nepalesisk variant.")
+                st.error(
+                    "Fyll i svenska samt minst en variant (romaji eller devanagari)."
+                )
 
     with col_b:
         st.subheader("📁 Skapa ny kategori")
@@ -322,8 +328,12 @@ with tab3:
     cat_items = load_json(f"{view_cat}.json", [])
     if cat_items:
         for item in cat_items:
+            # Bakåtkompatibilitet för äldre objekt i nouns/time
+            t_val = item.get("transliteration", "")
+            np_val = item.get("word_np", "")
+            sv_val = item.get("word_sv", "")
             st.text(
-                f"🇸🇪 {item.get('word_sv')}  |  🇳🇵 {item.get('word_np')}  |  🔤 {item.get('transliteration')}"
+                f"🇸🇪 {sv_val}  |  🔤 {t_val}  |  🇳🇵 {np_val}"
             )
     else:
         st.info("Inga ord i denna kategori än.")
@@ -357,16 +367,18 @@ with tab5:
 
     cat_files = get_category_files()
     cat_names = [f.replace(".json", "") for f in cat_files]
-    quiz_cat = st.selectbox("Välj kategori att träna på:", cat_names, key="quiz_cat_select")
+    quiz_cat = st.selectbox(
+        "Välj kategori att träna på:", cat_names, key="quiz_cat_select"
+    )
 
     active_vocab = load_json(f"{quiz_cat}.json", [])
 
-    # Välj svarsläge
     quiz_mode = st.radio(
-        "Välj träningsläge:", ["Fritext (skriv själv)", "Flerval (välj bland 10 alternativ)"], horizontal=True
+        "Välj träningsläge:",
+        ["Fritext (skriv själv)", "Flerval (välj bland 10 alternativ)"],
+        horizontal=True,
     )
 
-    # Nollställ quiz-item om kategorin eller läget ändras
     if (
         "last_quiz_cat" not in st.session_state
         or st.session_state.last_quiz_cat != quiz_cat
@@ -377,8 +389,10 @@ with tab5:
         st.session_state.last_quiz_mode = quiz_mode
         if active_vocab:
             st.session_state.quiz_item = random.choice(active_vocab)
-            # Om flerval, generera 10 alternativ
-            if quiz_mode == "Flerval (välj bland 10 alternativ)" and len(active_vocab) > 1:
+            if (
+                quiz_mode == "Flerval (välj bland 10 alternativ)"
+                and len(active_vocab) > 1
+            ):
                 correct = st.session_state.quiz_item
                 others = [item for item in active_vocab if item != correct]
                 selected_others = random.sample(others, min(9, len(others)))
@@ -391,9 +405,15 @@ with tab5:
     if not active_vocab:
         st.warning("Tom kategori. Lägg till ord i ordförråds-fliken först!")
     else:
-        if "quiz_item" not in st.session_state or not st.session_state.quiz_item:
+        if (
+            "quiz_item" not in st.session_state
+            or not st.session_state.quiz_item
+        ):
             st.session_state.quiz_item = random.choice(active_vocab)
-            if quiz_mode == "Flerval (välj bland 10 alternativ)" and len(active_vocab) > 1:
+            if (
+                quiz_mode == "Flerval (välj bland 10 alternativ)"
+                and len(active_vocab) > 1
+            ):
                 correct = st.session_state.quiz_item
                 others = [item for item in active_vocab if item != correct]
                 selected_others = random.sample(others, min(9, len(others)))
@@ -409,7 +429,7 @@ with tab5:
 
         if "Fritext" in quiz_mode:
             user_guess = st.text_input(
-                "Skriv ditt svar (nepalesiska tecken eller translitterering):",
+                "Skriv ditt svar (romaji eller devanagari):",
                 key="quiz_input_free",
             )
 
@@ -422,30 +442,36 @@ with tab5:
                     )
                     guess = user_guess.strip().lower()
 
-                    if guess and (guess == correct_np or guess == correct_trans):
+                    if guess and (
+                        guess == correct_np or guess == correct_trans
+                    ):
                         st.success("🎉 Rätt svar!")
                     else:
+                        t_str = current_q.get("transliteration", "")
+                        np_str = current_q.get("word_np", "")
                         st.error(
-                            f"❌ Fel. Rätt svar är: **{current_q.get('word_np')}** (*{current_q.get('transliteration')}*)"
+                            f"❌ Fel. Rätt svar är: 🔤 {t_str} | 🇳🇵 {np_str}"
                         )
             with col2:
                 if st.button("Nästa ord"):
                     st.session_state.quiz_item = random.choice(active_vocab)
                     st.rerun()
         else:
-            # Flervalsläge med upp till 10 alternativ
             if "quiz_options" in st.session_state:
                 options = st.session_state.quiz_options
                 option_labels = [
-                    f"{opt.get('word_np')} ({opt.get('transliteration')})" for opt in options
+                    f"🔤 {opt.get('transliteration', '')}  |  🇳🇵 {opt.get('word_np', '')}"
+                    for opt in options
                 ]
 
-                chosen_label = st.radio("Välj rätt översättning:", option_labels, key="quiz_radio")
+                chosen_label = st.radio(
+                    "Välj rätt översättning:", option_labels, key="quiz_radio"
+                )
 
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("Kontrollera svar (Flerval)"):
-                        correct_label = f"{current_q.get('word_np')} ({current_q.get('transliteration')})"
+                        correct_label = f"🔤 {current_q.get('transliteration', '')}  |  🇳🇵 {current_q.get('word_np', '')}"
                         if chosen_label == correct_label:
                             st.success("🎉 Rätt svar!")
                         else:
@@ -456,11 +482,17 @@ with tab5:
                     if st.button("Nästa ord (Flerval)"):
                         st.session_state.quiz_item = random.choice(active_vocab)
                         correct = st.session_state.quiz_item
-                        others = [item for item in active_vocab if item != correct]
-                        selected_others = random.sample(others, min(9, len(others)))
+                        others = [
+                            item for item in active_vocab if item != correct
+                        ]
+                        selected_others = random.sample(
+                            others, min(9, len(others))
+                        )
                         options = selected_others + [correct]
                         random.shuffle(options)
                         st.session_state.quiz_options = options
                         st.rerun()
             else:
-                st.warning("Kunde inte ladda flervalsalternativ. Byt kategori eller lägg till fler ord.")
+                st.warning(
+                    "Kunde inte ladda flervalsalternativ. Byt kategori eller lägg till fler ord."
+                )
