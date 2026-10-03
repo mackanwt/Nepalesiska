@@ -93,9 +93,9 @@ def render_special_chars_sidebar():
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
-    chars = ["ā", "ī", "ū", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ǎ"]
+    # Uppdaterat med rätt tecken istället för det kryssade
+    chars = ["ā", "ī", "ū", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
     
-    # Skapa ett snyggt rutnät med knappar eller textkopiering
     cols = st.columns(3)
     for idx, char in enumerate(chars):
         with cols[idx % 3]:
@@ -379,7 +379,6 @@ with tab6:
     with main_col:
         st.header("💬 Meningsquiz (Granskade meningar)")
         
-        # Filtrera endast granskade meningar och ta bort dubletter
         raw_reviewed = [s for s in user_sentences_data if s.get("status") == "Granskad"]
         unique_reviewed = []
         seen = set()
