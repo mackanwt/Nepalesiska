@@ -93,7 +93,6 @@ def render_special_chars_sidebar():
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
-    # Korrekt teckenpanel med tilde/makron över a
     chars = ["ā", "ī", "ū", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
     
     cols = st.columns(3)
@@ -311,13 +310,19 @@ with tab3:
             st.info("Inga ord i denna kategori än.")
         else:
             item_choices = {f"🇸🇪 {item.get('word_sv')} | 🔤 {item.get('transliteration')}": idx for idx, item in enumerate(cat_items)}
+            
+            # Kolla om kategorin har ändrats för att nollställa valet
+            if "t3_last_manage_cat" not in st.session_state or st.session_state.t3_last_manage_cat != view_cat:
+                st.session_state.t3_last_manage_cat = view_cat
+                st.session_state.t3_item_select_idx = 0
+
             selected_item_label = st.selectbox("Välj ord att redigera/radera:", list(item_choices.keys()), key="t3_item_select")
             selected_idx = item_choices[selected_item_label]
             current_item = cat_items[selected_idx]
 
-            ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key="t3_ed_sv")
-            ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key="t3_ed_trans")
-            ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key="t3_ed_dev")
+            ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t3_ed_sv_{selected_idx}")
+            ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t3_ed_trans_{selected_idx}")
+            ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t3_ed_dev_{selected_idx}")
 
             col_m1, col_m2 = st.columns(2)
             with col_m1:
