@@ -25,6 +25,7 @@ def load_json(filename, default_data):
                         item["devanagari"] = item["word_np"]
                 return data
         except Exception:
+            st.error(f"Kunde inte läsa filen {filename}. Den kan vara skadad.")
             return default_data
     else:
         save_json(filename, default_data)
@@ -35,6 +36,12 @@ def save_json(filename, data):
     filepath = os.path.join(DATA_DIR, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
+
+@st.cache_data
+def get_cached_category_files():
+    # Hjälpfunktion för att söka igenom mappen
+    pass
 
 
 def get_category_files():
@@ -84,7 +91,7 @@ DEFAULT_USER_SENTENCES = [
     }
 ]
 
-# Ladda data
+# Ladda data i startsekvens
 user_sentences_data = load_json("user_sentences.json", DEFAULT_USER_SENTENCES)
 load_json("verbs.json", DEFAULT_VERBS)
 load_json("nouns.json", DEFAULT_NOUNS)
@@ -96,7 +103,6 @@ with st.sidebar:
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
-    # Här har 'ũ' bytts ut mot 'ū' (med rakt streck)
     chars = ["ā", "ī", "ū", "ĩ", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
     
     cols = st.columns(3)
@@ -134,6 +140,12 @@ with tab1:
         default=[c for c in cat_files if c in ["nouns.json", "time.json"]],
         key="t1_multiselect"
     )
+
+    # Nollställ slumpade ord om valda kategorier ändras
+    if "t1_last_cats" not in st.session_state or st.session_state.t1_last_cats != selected_cats:
+        st.session_state.t1_last_cats = selected_cats
+        if "random_challenge" in st.session_state:
+            del st.session_state.random_challenge
 
     if st.button("🎲 Slumpa fram nya ord", key="t1_btn"):
         if not selected_cats:
@@ -516,13 +528,16 @@ with tab7:
         selected_idx = item_choices[selected_item_label]
         current_item = cat_items[selected_idx]
 
-        ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t7_ed_sv_{selected_idx}")
-        ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t7_ed_trans_{selected_idx}")
-        ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t7_ed_dev_{selected_idx}")
+        # Använd ordets unika svensktalande text + kategori som nyckelbas istället för enbart index
+        safe_key = f"{view_cat}_{current_item.get('word_sv', 'ord')}"
+
+        ed_sv = st.text_input("Ändra svenska:", value=current_item.get("word_sv", ""), key=f"t7_ed_sv_{safe_key}")
+        ed_trans = st.text_input("Ändra romaji:", value=current_item.get("transliteration", ""), key=f"t7_ed_trans_{safe_key}")
+        ed_dev = st.text_input("Ändra devanagari:", value=current_item.get("devanagari", current_item.get("word_np", "")), key=f"t7_ed_dev_{safe_key}")
 
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            if st.button("💾 Spara ändringar i ord", key="t7_save_word"):
+            if st.button("💾 Spara ändringar i ord", key=f"t7_save_word_{safe_key}"):
                 current_item["word_sv"] = ed_sv
                 current_item["transliteration"] = ed_trans
                 current_item["devanagari"] = ed_dev
@@ -531,7 +546,7 @@ with tab7:
                 st.success("Ordet uppdaterades!")
                 st.rerun()
         with col_m2:
-            if st.button("🗑️ Radera ordet", key="t7_del_word"):
+            if st.button("🗑️ Radera ordet", key=f"t7_del_word_{safe_key}"):
                 cat_items.pop(selected_idx)
                 save_json(f"{view_cat}.json", cat_items)
                 st.success("Ordet raderades!")
