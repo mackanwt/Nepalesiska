@@ -1,0 +1,20 @@
+[
+    {
+        "verb_sv": "att äta",
+        "verb_np": "khanu (खानू)",
+        "conjugations": {
+            "Nutid (jag äter)": "ma khanchu",
+            "Dåtid (jag åt)": "ma khaaye",
+            "Framtid (jag ska äta)": "ma khane chu"
+        }
+    },
+    {
+        "verb_sv": "att gå",
+        "verb_np": "janu (जानू)",
+        "conjugations": {
+            "Nutid (jag går)": "ma janchu",
+            "Dåtid (jag gick)": "ma gaye",
+            "Framtid (jag ska gå)": "ma jane chu"
+        }
+    }
+]
