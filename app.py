@@ -50,7 +50,7 @@ def get_category_files():
     return files
 
 
-# Standarddata
+# Standarddata med enhetlig struktur
 DEFAULT_VERBS = [
     {
         "word_sv": "att äta",
@@ -288,7 +288,6 @@ with tab3:
                 if word_sv and (translit or devanagari):
                     filename = f"{selected_cat}.json"
                     current_data = load_json(filename, [])
-                    # Om det är verb-kategorin ser vi till att skicka med en tom conjugations-struktur om den saknas
                     new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
                     if selected_cat == "verbs":
                         new_item["conjugations"] = {}
