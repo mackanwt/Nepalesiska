@@ -205,77 +205,65 @@ with tab2:
             st.markdown(f"### Grundform: 🔤 {selected_verb.get('transliteration', '')}  |  🇳🇵 {selected_verb.get('devanagari', '')}")
             st.caption(f"Svenska: {selected_verb.get('word_sv', '')}")
 
-            st.divider()
-            st.subheader("📝 Hantera och redigera böjningar")
-            
+            st.write("#### Nuvarande böjningar:")
             conjugations = selected_verb.get("conjugations", {})
-            
-            # Hämta befintliga tidsformer + standardalternativ för rullistan
-            default_tenses = ["Presens", "Preteritum", "Perfekt", "Pluskvamperfekt", "Futurum"]
-            existing_tenses = list(conjugations.keys())
-            combined_tenses = sorted(list(set(default_tenses + existing_tenses)))
-
             if not conjugations:
                 st.info("Inga böjningar tillagda för detta verb ännu.")
             else:
-                for tense, conj_data in list(conjugations.items()):
-                    with st.expander(f"Böjning: {tense}"):
-                        current_trans = conj_data.get("translit", "") if isinstance(conj_data, dict) else ""
-                        current_dev = conj_data.get("devanagari", "") if isinstance(conj_data, dict) else str(conj_data)
-
-                        edit_trans = st.text_input(f"Romaji ({tense}):", value=current_trans, key=f"t2_ed_t_{selected_verb.get('word_sv')}_{tense}")
-                        edit_dev = st.text_input(f"Devanagari ({tense}):", value=current_dev, key=f"t2_ed_d_{selected_verb.get('word_sv')}_{tense}")
-
-                        c_btn1, c_btn2 = st.columns(2)
-                        with c_btn1:
-                            if st.button("💾 Spara ändring", key=f"t2_save_c_{selected_verb.get('word_sv')}_{tense}"):
-                                for v in raw_verbs_data:
-                                    if v.get("word_sv") == selected_verb.get("word_sv"):
-                                        if "conjugations" not in v:
-                                            v["conjugations"] = {}
-                                        v["conjugations"][tense] = {"translit": edit_trans, "devanagari": edit_dev}
-                                        break
-                                save_json("verbs.json", raw_verbs_data)
-                                st.success(f"Böjning '{tense}' uppdaterad!")
-                                st.rerun()
-                        with c_btn2:
-                            if st.button("🗑️ Radera böjning", key=f"t2_del_c_{selected_verb.get('word_sv')}_{tense}"):
-                                for v in raw_verbs_data:
-                                    if v.get("word_sv") == selected_verb.get("word_sv"):
-                                        if tense in v.get("conjugations", {}):
-                                            del v["conjugations"][tense]
-                                        break
-                                save_json("verbs.json", raw_verbs_data)
-                                st.success(f"Böjning '{tense}' raderades!")
-                                st.rerun()
+                for tense, conj_data in conjugations.items():
+                    if isinstance(conj_data, dict):
+                        st.info(f"**{tense}:** 🔤 {conj_data.get('translit', '')}  |  🇳🇵 {conj_data.get('devanagari', '')}")
+                    else:
+                        st.info(f"**{tense}:** {conj_data}")
 
             st.divider()
-            st.subheader("➕ Lägg till ny eller anpassad tidsform")
+            st.subheader("➕ Lägg till ny böjning")
             
-            # Möjlighet att välja befintlig tidsform ELLER skriva en egen ny
-            choice_mode = st.radio("Välj metod för tidsform:", ["Välj från lista", "Skriv egen ny tidsform"], horizontal=True, key="t2_mode")
+            # Ändrat till st.selectbox med de fasta alternativen
+            tense_options = ["Presens", "Preteritum", "Perfekt", "Pluskvamperfekt", "Futurum"]
+            new_tense_name = st.selectbox("Tidsform / Beskrivning:", tense_options, key="t2_tense")
             
-            if choice_mode == "Välj från lista":
-                new_tense_name = st.selectbox("Tidsform:", combined_tenses, key="t2_tense_select")
-            else:
-                new_tense_name = st.text_input("Skriv ny tidsform (t.ex. Konjunktiv):", key="t2_tense_custom")
-
             new_tense_trans = st.text_input("Romaji:", key="t2_trans")
             new_tense_dev = st.text_input("Devanagari:", key="t2_dev")
 
-            if st.button("Spara ny böjning", key="t2_save_new"):
-                if new_tense_name.strip() and (new_tense_trans or new_tense_dev):
+            if st.button("Spara böjning", key="t2_save"):
+                if new_tense_name and (new_tense_trans or new_tense_dev):
                     for v in raw_verbs_data:
                         if v.get("word_sv") == selected_verb.get("word_sv"):
                             if "conjugations" not in v:
                                 v["conjugations"] = {}
-                            v["conjugations"][new_tense_name.strip()] = {"translit": new_tense_trans, "devanagari": new_tense_dev}
+                            v["conjugations"][new_tense_name] = {"translit": new_tense_trans, "devanagari": new_tense_dev}
                             break
                     save_json("verbs.json", raw_verbs_data)
                     st.success("Böjning sparad!")
                     st.rerun()
                 else:
-                    st.error("Fyll i tidsform och minst romaji eller devanagari.")
+                    st.error("Fyll i minst romaji eller devanagari.")
+
+            st.divider()
+            with st.expander("✏️ Redigera eller Radera detta verb"):
+                edit_sv = st.text_input("Svenska (grundform):", value=selected_verb.get("word_sv", ""), key="t2_edit_sv")
+                edit_trans = st.text_input("Romaji (grundform):", value=selected_verb.get("transliteration", ""), key="t2_edit_trans")
+                edit_dev = st.text_input("Devanagari (grundform):", value=selected_verb.get("devanagari", ""), key="t2_edit_dev")
+
+                col_e1, col_e2 = st.columns(2)
+                with col_e1:
+                    if st.button("💾 Spara ändringar i verb", key="t2_save_edit"):
+                        for v in raw_verbs_data:
+                            if v.get("word_sv") == selected_verb.get("word_sv"):
+                                v["word_sv"] = edit_sv
+                                v["transliteration"] = edit_trans
+                                v["devanagari"] = edit_dev
+                                break
+                        save_json("verbs.json", raw_verbs_data)
+                        st.success("Verbet uppdaterat!")
+                        st.rerun()
+                with col_e2:
+                    if st.button("🗑️ Radera hela verbet", key="t2_delete_verb"):
+                        raw_verbs_data = [v for v in raw_verbs_data if v.get("word_sv") != selected_verb.get("word_sv")]
+                        save_json("verbs.json", raw_verbs_data)
+                        st.success("Verbet raderades!")
+                        st.rerun()
 
     with right_col:
         render_special_chars_sidebar()
