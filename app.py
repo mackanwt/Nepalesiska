@@ -19,7 +19,12 @@ def load_json(filename, default_data):
     if os.path.exists(filepath):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                # Säkerställ bakåtkompatibilitet om gamla fält finns
+                for item in data:
+                    if "word_np" in item and "devanagari" not in item:
+                        item["devanagari"] = item["word_np"]
+                return data
         except Exception:
             return default_data
     else:
@@ -35,7 +40,6 @@ def save_json(filename, data):
 
 # Hämta alla kategori-filer dynamiskt från data-mappen
 def get_category_files():
-    # Inkluderar verbs.json som en vanlig kategori om den finns
     files = ["nouns.json", "time.json", "verbs.json"]
     if os.path.exists(DATA_DIR):
         for f in os.listdir(DATA_DIR):
@@ -48,32 +52,29 @@ def get_category_files():
     return files
 
 
-# Standarddata om filer saknas
+# Standarddata med korrekt uppdelning
 DEFAULT_VERBS = [
     {
         "word_sv": "att äta",
-        "word_np": "खानू",
         "transliteration": "khanu",
+        "devanagari": "खानू",
         "conjugations": {
-            "Nutid (jag äter)": {
-                "translit": "ma khanchu",
-                "np": "म खानschu",
-            },
-            "Dåtid (jag åt)": {"translit": "ma khaaye", "np": "म खाइए"},
+            "Nutid": {"translit": "ma khanchu", "devanagari": "म खानछु"},
+            "Dåtid": {"translit": "ma khaaye", "devanagari": "म खाइए"},
         },
     }
 ]
 DEFAULT_NOUNS = [
     {
         "word_sv": "frukost",
-        "word_np": "बिहानको खाजा",
         "transliteration": "bihanko khaja",
+        "devanagari": "बिहानको खाजा",
     },
-    {"word_sv": "mat", "word_np": "खाना", "transliteration": "khana"},
+    {"word_sv": "mat", "transliteration": "khana", "devanagari": "खाना"},
 ]
 DEFAULT_TIME = [
-    {"word_sv": "idag", "word_np": "आज", "transliteration": "aja"},
-    {"word_sv": "igår", "word_np": "हिजो", "transliteration": "hijo"},
+    {"word_sv": "idag", "transliteration": "aja", "devanagari": "आज"},
+    {"word_sv": "igår", "transliteration": "hijo", "devanagari": "हिजो"},
 ]
 DEFAULT_USER_SENTENCES = [
     {
@@ -85,7 +86,6 @@ DEFAULT_USER_SENTENCES = [
 
 # Ladda data
 user_sentences_data = load_json("user_sentences.json", DEFAULT_USER_SENTENCES)
-# Säkerställ att grundfiler finns
 load_json("verbs.json", DEFAULT_VERBS)
 load_json("nouns.json", DEFAULT_NOUNS)
 load_json("time.json", DEFAULT_TIME)
@@ -106,7 +106,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ]
 )
 
-# --- FLIK 1: BYGG MENINGAR (VALBARA KATEGORIER & HINT) ---
+# --- FLIK 1: BYGG MENINGAR ---
 with tab1:
     st.header("Aktiv Meningsbyggnad")
     st.write(
@@ -157,18 +157,21 @@ with tab1:
             st.session_state.random_challenge.items()
         ):
             with cols[idx]:
-                np_text = word_obj.get("word_np", "")
                 trans_text = word_obj.get("transliteration", "")
+                dev_text = word_obj.get(
+                    "devanagari", word_obj.get("word_np", "")
+                )
+                # Romaji först, sedan Devanagari
                 st.info(
-                    f"**{cat}**\n\n🔤 *{trans_text}*\n\n🇳🇵 {np_text}"
+                    f"**{cat}**\n\n🔤 {trans_text}\n\n🇳🇵 {dev_text}"
                 )
 
         with st.expander("🔍 Hint: Visa svensk betydelse för de slumpade orden"):
             for cat, word_obj in st.session_state.random_challenge.items():
                 trans = word_obj.get("transliteration", "")
-                np_t = word_obj.get("word_np", "")
+                dev = word_obj.get("devanagari", word_obj.get("word_np", ""))
                 st.write(
-                    f"**{cat}:** {word_obj.get('word_sv', '')} (*{trans}* / {np_t})"
+                    f"**{cat}:** {word_obj.get('word_sv', '')} (*{trans}* / {dev})"
                 )
 
     with st.expander("💡 Visa alla tillgängliga ord i kategorierna som referens"):
@@ -178,8 +181,8 @@ with tab1:
             st.markdown(f"**Kategori: {cat_name}**")
             for item in cdata:
                 trans = item.get("transliteration", "")
-                np_t = item.get("word_np", "")
-                st.text(f"• {trans} ({np_t})")
+                dev = item.get("devanagari", item.get("word_np", ""))
+                st.text(f"• 🔤 {trans}  |  🇳🇵 {dev}")
 
     st.divider()
     st.markdown("### Skriv din mening:")
@@ -206,33 +209,33 @@ with tab1:
 # --- FLIK 2: VERBBÖJNINGAR ---
 with tab2:
     st.header("Verbböjningar & Lexikon")
-
     verbs_data = load_json("verbs.json", DEFAULT_VERBS)
 
     if not verbs_data:
         st.warning(
-            "Inga verb inlagda än. Lägg till verb i 'Ordförråd & Kategorier' under kategorin 'verbs'."
+            "Inga verb inlagda än. Lägg till verb under kategorin 'verbs' i ordförråds-fliken."
         )
     else:
         verb_choices = {
-            f"{v.get('word_sv', '')} - {v.get('transliteration', '')} ({v.get('word_np', '')})": v
+            f"{v.get('word_sv', '')} - {v.get('transliteration', '')} ({v.get('devanagari', v.get('word_np', ''))})": v
             for v in verbs_data
         }
         selected_verb_key = st.selectbox("Välj ett verb:", list(verb_choices.keys()))
         selected_verb = verb_choices[selected_verb_key]
 
+        v_trans = selected_verb.get("transliteration", "")
+        v_dev = selected_verb.get("devanagari", selected_verb.get("word_np", ""))
         st.markdown(
-            f"### Grundform: 🔤 *{selected_verb.get('transliteration', '')}* | 🇳🇵 {selected_verb.get('word_np', '')}"
+            f"### Grundform: 🔤 {v_trans}  |  🇳🇵 {v_dev}"
         )
         st.caption(f"Svenska: {selected_verb.get('word_sv', '')}")
 
         st.write("#### Nuvarande böjningar:")
         if selected_verb.get("conjugations"):
             for tense, conj_data in selected_verb["conjugations"].items():
-                # Hantera både gammal struktur (sträng) och ny struktur (dict med romaji och np)
                 if isinstance(conj_data, dict):
                     t_val = conj_data.get("translit", "")
-                    np_val = conj_data.get("np", "")
+                    np_val = conj_data.get("devanagari", conj_data.get("np", ""))
                     st.info(f"**{tense}:** 🔤 {t_val}  |  🇳🇵 {np_val}")
                 else:
                     st.info(f"**{tense}:** {conj_data}")
@@ -245,26 +248,24 @@ with tab2:
             "Tidsform / Beskrivning (t.ex. 'Nutid', 'Dåtid'):"
         )
         new_tense_trans = st.text_input("Böjd form med Romaji (t.ex. ma khanchu):")
-        new_tense_np = st.text_input("Böjd form med Devanagari (t.ex. म खानchu):")
+        new_tense_dev = st.text_input("Böjd form med Devanagari (t.ex. म खानछु):")
 
         if st.button("Spara ny böjning"):
-            if new_tense_name and new_tense_trans:
+            if new_tense_name and (new_tense_trans or new_tense_dev):
                 for v in verbs_data:
                     if v.get("word_sv") == selected_verb.get("word_sv"):
                         if "conjugations" not in v:
                             v["conjugations"] = {}
                         v["conjugations"][new_tense_name] = {
                             "translit": new_tense_trans,
-                            "np": new_tense_np,
+                            "devanagari": new_tense_dev,
                         }
                         break
                 save_json("verbs.json", verbs_data)
-                st.success(
-                    f"Lade till '{new_tense_name}' för {selected_verb.get('word_sv')}!"
-                )
+                st.success(f"Lade till '{new_tense_name}'!")
                 st.rerun()
             else:
-                st.error("Fyll i åtminstone tidsform och romaji.")
+                st.error("Fyll i tidsform och minst en variant.")
 
 # --- FLIK 3: ORDFÖRRÅD & KATEGORIER ---
 with tab3:
@@ -280,17 +281,17 @@ with tab3:
         selected_cat = st.selectbox("Välj kategori:", category_names)
         word_sv = st.text_input("Svenska:")
         translit = st.text_input("Romaji / Transliteration (t.ex. 'khaja'):")
-        word_np = st.text_input("Nepalesiska tecken (Devanagari):")
+        devanagari = st.text_input("Nepalesiska tecken (Devanagari):")
 
         if st.button("Spara ord"):
-            if word_sv and (translit or word_np):
+            if word_sv and (translit or devanagari):
                 filename = f"{selected_cat}.json"
                 current_data = load_json(filename, [])
                 current_data.append(
                     {
                         "word_sv": word_sv,
-                        "word_np": word_np,
                         "transliteration": translit,
+                        "devanagari": devanagari,
                     }
                 )
                 save_json(filename, current_data)
@@ -298,9 +299,7 @@ with tab3:
                     f"Sparade '{word_sv}' i kategorin '{selected_cat}'!"
                 )
             else:
-                st.error(
-                    "Fyll i svenska samt minst en variant (romaji eller devanagari)."
-                )
+                st.error("Fyll i svenska samt antingen romaji eller devanagari.")
 
     with col_b:
         st.subheader("📁 Skapa ny kategori")
@@ -328,13 +327,10 @@ with tab3:
     cat_items = load_json(f"{view_cat}.json", [])
     if cat_items:
         for item in cat_items:
-            # Bakåtkompatibilitet för äldre objekt i nouns/time
-            t_val = item.get("transliteration", "")
-            np_val = item.get("word_np", "")
-            sv_val = item.get("word_sv", "")
-            st.text(
-                f"🇸🇪 {sv_val}  |  🔤 {t_val}  |  🇳🇵 {np_val}"
-            )
+            sv = item.get("word_sv", "")
+            t = item.get("transliteration", "")
+            dev = item.get("devanagari", item.get("word_np", ""))
+            st.text(f"🇸🇪 {sv}  |  🔤 {t}  |  🇳🇵 {dev}")
     else:
         st.info("Inga ord i denna kategori än.")
 
@@ -361,7 +357,7 @@ with tab4:
                     st.rerun()
                 st.write("---")
 
-# --- FLIK 5: GLOS-QUIZ (Fritext eller Flerval) ---
+# --- FLIK 5: GLOS-QUIZ ---
 with tab5:
     st.header("Glos-Quiz")
 
@@ -436,21 +432,25 @@ with tab5:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Kontrollera svar"):
-                    correct_np = current_q.get("word_np", "").strip().lower()
-                    correct_trans = (
-                        current_q.get("transliteration", "").strip().lower()
-                    )
+                    correct_dev = current_q.get(
+                        "devanagari", current_q.get("word_np", "")
+                    ).strip().lower()
+                    correct_trans = current_q.get(
+                        "transliteration", ""
+                    ).strip().lower()
                     guess = user_guess.strip().lower()
 
                     if guess and (
-                        guess == correct_np or guess == correct_trans
+                        guess == correct_dev or guess == correct_trans
                     ):
                         st.success("🎉 Rätt svar!")
                     else:
                         t_str = current_q.get("transliteration", "")
-                        np_str = current_q.get("word_np", "")
+                        dev_str = current_q.get(
+                            "devanagari", current_q.get("word_np", "")
+                        )
                         st.error(
-                            f"❌ Fel. Rätt svar är: 🔤 {t_str} | 🇳🇵 {np_str}"
+                            f"❌ Fel. Rätt svar är: 🔤 {t_str}  |  🇳🇵 {dev_str}"
                         )
             with col2:
                 if st.button("Nästa ord"):
@@ -460,7 +460,7 @@ with tab5:
             if "quiz_options" in st.session_state:
                 options = st.session_state.quiz_options
                 option_labels = [
-                    f"🔤 {opt.get('transliteration', '')}  |  🇳🇵 {opt.get('word_np', '')}"
+                    f"🔤 {opt.get('transliteration', '')}  |  🇳🇵 {opt.get('devanagari', opt.get('word_np', ''))}"
                     for opt in options
                 ]
 
@@ -471,7 +471,7 @@ with tab5:
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("Kontrollera svar (Flerval)"):
-                        correct_label = f"🔤 {current_q.get('transliteration', '')}  |  🇳🇵 {current_q.get('word_np', '')}"
+                        correct_label = f"🔤 {current_q.get('transliteration', '')}  |  🇳🇵 {current_q.get('devanagari', current_q.get('word_np', ''))}"
                         if chosen_label == correct_label:
                             st.success("🎉 Rätt svar!")
                         else:
@@ -493,6 +493,4 @@ with tab5:
                         st.session_state.quiz_options = options
                         st.rerun()
             else:
-                st.warning(
-                    "Kunde inte ladda flervalsalternativ. Byt kategori eller lägg till fler ord."
-                )
+                st.warning("Kunde inte ladda flervalsalternativ.")
