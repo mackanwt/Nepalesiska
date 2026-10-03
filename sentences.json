@@ -1,0 +1,12 @@
+[
+    {
+        "id": 1,
+        "name": "Mat och Tid",
+        "template_sv": "[Time] åt jag [Food].",
+        "template_np": "[Time_np] ma [Food_np] khaaye.",
+        "slots": {
+            "Time": "time.json",
+            "Food": "nouns.json"
+        }
+    }
+]
