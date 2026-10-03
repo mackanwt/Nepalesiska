@@ -91,12 +91,27 @@ load_json("nouns.json", DEFAULT_NOUNS)
 load_json("time.json", DEFAULT_TIME)
 tenses_data = load_json("tenses.json", DEFAULT_TENSES)
 
+# --- CSS FÖR STICKY HÖGERSIDA ---
+st.markdown(
+    """
+    <style>
+    /* Gör att högerkolumnen (index 1 i 3/1-layouten) sitter fast vid scrollning */
+    div[data-testid="column"]:nth-of-type(2) {
+        position: sticky;
+        top: 4rem;
+        height: fit-content;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- HJÄLPFUNKTION FÖR SPECIALTECKEN PÅ HÖGERSIDAN ---
 def render_special_chars_sidebar():
     st.markdown("### 🔤 Specialtecken")
     st.caption("Klicka för att kopiera tecken:")
     
-    chars = ["ā", "ī", "ū", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
+    chars = ["ā", "ī", "ũ", "ĩ", "ṭ", "ṇ", "ḍ", "ṛ", "ṣ", "ś", "ṅ", "ñ", "ã"]
     
     cols = st.columns(3)
     for idx, char in enumerate(chars):
@@ -277,7 +292,7 @@ with tab2:
                         st.write("---")
 
             st.divider()
-            st.subheader("⚙️ Lägg till / Redigera / Radera Tidsform")
+            st.subheader("⚙️️ Lägg till / Redigera / Radera Tidsform")
             
             # Lägg till ny tidsform
             added_tense_input = st.text_input("Skriv ny tidsform att lägga till i rullistan:", key="t2_add_tense_input")
