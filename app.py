@@ -455,7 +455,7 @@ with tab5:
 with tab6:
     st.header("💬 Meningsquiz (Granskade meningar)")
     
-    raw_reviewed = [s for s in user_sentences_data if s.get("status"] == "Granskad")
+    raw_reviewed = [s for s in user_sentences_data if s.get("status") == "Granskad"]
     unique_reviewed = []
     seen = set()
     for s in raw_reviewed:
@@ -486,7 +486,7 @@ with tab6:
         if st.button("➡️ Nästa mening", key="t6_next"):
             st.session_state.t6_item = random.choice(unique_reviewed)
             st.rerun()
-
+            
 # --- FLIK 7: REDIGERA ORDFÖRRÅD ---
 with tab7:
     st.header("⚙️ Redigera Ordförråd & Kategorier")
