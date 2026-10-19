@@ -2,6 +2,8 @@ import json
 import os
 import random
 import streamlit as st
+import base64
+import requests
 
 # --- SIDKONFIGURATION ---
 st.set_page_config(
@@ -34,8 +36,43 @@ def load_json(filename, default_data):
 
 def save_json(filename, data):
     filepath = os.path.join(DATA_DIR, filename)
+    
+    # 1. Spara lokalt först
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+        
+    # 2. Skicka till GitHub automatiskt om GITHUB_TOKEN finns i Streamlit Secrets
+    try:
+        if hasattr(st, "secrets") and "GITHUB_TOKEN" in st.secrets:
+            GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+            REPO_NAME = "mackanwt/Nepalesiska"
+            BRANCH = "main"
+            
+            json_str = json.dumps(data, ensure_ascii=False, indent=4)
+            file_content_encoded = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
+            
+            api_url = f"https://api.github.com/repos/{REPO_NAME}/contents/{filename}"
+            headers = {
+                "Authorization": f"Bearer {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github+json"
+            }
+            
+            response = requests.get(api_url, headers=headers)
+            sha = None
+            if response.status_code == 200:
+                sha = response.json().get("sha")
+                
+            payload = {
+                "message": f"Uppdaterar {filename} automatiskt från appen",
+                "content": file_content_encoded,
+                "branch": BRANCH
+            }
+            if sha:
+                payload["sha"] = sha
+                
+            requests.put(api_url, headers=headers, json=payload)
+    except Exception as e:
+        pass
 
 
 @st.cache_data
@@ -125,7 +162,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
     ]
 )
 
-# --- FLIK 1: BYGG MENINGAR ---
+# --- FLIK 1: BYgg MENINGAR ---
 with tab1:
     st.header("Aktiv Meningsbyggnad")
     st.write("Välj kategorier och slumpa fram ord att bygga med!")
@@ -141,7 +178,6 @@ with tab1:
         key="t1_multiselect"
     )
 
-    # Nollställ slumpade ord om valda kategorier ändras
     if "t1_last_cats" not in st.session_state or st.session_state.t1_last_cats != selected_cats:
         st.session_state.t1_last_cats = selected_cats
         if "random_challenge" in st.session_state:
@@ -419,7 +455,7 @@ with tab5:
 with tab6:
     st.header("💬 Meningsquiz (Granskade meningar)")
     
-    raw_reviewed = [s for s in user_sentences_data if s.get("status") == "Granskad"]
+    raw_reviewed = [s for s in user_sentences_data if s.get("status"] == "Granskad")
     unique_reviewed = []
     seen = set()
     for s in raw_reviewed:
@@ -470,12 +506,28 @@ with tab7:
             if word_sv and (translit or devanagari):
                 filename = f"{selected_cat}.json"
                 current_data = load_json(filename, [])
-                new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
-                if selected_cat == "verbs":
-                    new_item["conjugations"] = {}
-                current_data.append(new_item)
+                
+                # Kontrollera om ordet redan finns för att förhindra kopior
+                word_exists = False
+                for item in current_data:
+                    if item.get("word_sv", "").strip().lower() == word_sv.strip().lower():
+                        item["transliteration"] = translit
+                        item["devanagari"] = devanagari
+                        word_exists = True
+                        break
+                
+                if not word_exists:
+                    new_item = {"word_sv": word_sv, "transliteration": translit, "devanagari": devanagari}
+                    if selected_cat == "verbs":
+                        new_item["conjugations"] = {}
+                    current_data.append(new_item)
+                
                 save_json(filename, current_data)
-                st.success("Ord sparat!")
+                
+                if word_exists:
+                    st.success("Ordet fanns redan och har uppdaterats!")
+                else:
+                    st.success("Ord sparat!")
                 st.rerun()
             else:
                 st.error("Fyll i svenska samt romaji eller devanagari.")
