@@ -472,7 +472,8 @@ with tab6:
 
         current_sent = st.session_state.t6_item
 
-        if "Nepalesiska" in direction:
+        # KONTROLL: Kollar om riktningen startar med "Nepalesiska"
+        if direction.startswith("Nepalesiska"):
             st.markdown(f"### Översätt till svenska:\n\n🇳🇵 **{current_sent['np']}**")
             if st.button("Visa rätt svar", key="t6_show"):
                 st.success(f"🇸🇪 **{current_sent['sv']}**")
