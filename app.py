@@ -10,14 +10,10 @@ st.set_page_config(
     page_title="Nepalesisk Språkinlärning", page_icon="🇳🇵", layout="wide"
 )
 
-# --- MAPP & FIL-HANTERING ---
-DATA_DIR = "data"
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
+# --- FIL-HANTERING (Sparar direkt i rotmappen) ---
 
 def load_json(filename, default_data):
-    filepath = os.path.join(DATA_DIR, filename)
+    filepath = filename  # Sparar direkt i rotmappen
     if os.path.exists(filepath):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -35,13 +31,13 @@ def load_json(filename, default_data):
 
 
 def save_json(filename, data):
-    filepath = os.path.join(DATA_DIR, filename)
+    filepath = filename
     
-    # 1. Spara lokalt först
+    # 1. Spara filen lokalt/i appens minne
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
         
-    # 2. Skicka till GitHub automatiskt om GITHUB_TOKEN finns i Streamlit Secrets
+    # 2. Skicka direkt till rotmappen på GitHub via API
     try:
         if hasattr(st, "secrets") and "GITHUB_TOKEN" in st.secrets:
             GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
@@ -51,12 +47,14 @@ def save_json(filename, data):
             json_str = json.dumps(data, ensure_ascii=False, indent=4)
             file_content_encoded = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
             
+            # Sökväg direkt till filen på GitHub
             api_url = f"https://api.github.com/repos/{REPO_NAME}/contents/{filename}"
             headers = {
                 "Authorization": f"Bearer {GITHUB_TOKEN}",
                 "Accept": "application/vnd.github+json"
             }
             
+            # Hämta filens SHA-hash
             response = requests.get(api_url, headers=headers)
             sha = None
             if response.status_code == 200:
@@ -83,15 +81,15 @@ def get_cached_category_files():
 
 def get_category_files():
     files = ["nouns.json", "time.json", "verbs.json"]
-    if os.path.exists(DATA_DIR):
-        for f in os.listdir(DATA_DIR):
-            if f.endswith(".json") and f not in [
-                "sentences.json",
-                "user_sentences.json",
-                "tenses.json",
-            ]:
-                if f not in files:
-                    files.append(f)
+    # Sök efter json-filer i rotmappen
+    for f in os.listdir("."):
+        if f.endswith(".json") and f not in [
+            "sentences.json",
+            "user_sentences.json",
+            "tenses.json",
+        ]:
+            if f not in files:
+                files.append(f)
     return files
 
 
