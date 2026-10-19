@@ -2,16 +2,34 @@
     {
         "word_sv": "idag",
         "word_np": "aja",
-        "transliteration": "aja"
+        "transliteration": "aja",
+        "devanagari": "आज"
     },
     {
         "word_sv": "igår",
         "word_np": "hijo",
-        "transliteration": "hijo"
+        "transliteration": "hijo",
+        "devanagari": "हिजो"
     },
     {
         "word_sv": "imorgon",
         "word_np": "bholi",
-        "transliteration": "bholi"
+        "transliteration": "bholi",
+        "devanagari": "भोली"
+    },
+    {
+        "word_sv": "morgon",
+        "transliteration": "Bihān",
+        "devanagari": "बिहान"
+    },
+    {
+        "word_sv": "kväll",
+        "transliteration": "belukā",
+        "devanagari": "बेलुका"
+    },
+    {
+        "word_sv": "natt",
+        "transliteration": "Rāti",
+        "devanagari": "राति"
     }
 ]
